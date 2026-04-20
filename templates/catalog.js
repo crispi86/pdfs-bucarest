@@ -117,10 +117,8 @@ function catalogHTML(products, options = {}) {
     .cover img { max-width: 240px; }
     .cover h1 { font-size: 44px; font-weight: 300; letter-spacing: 0.08em; text-transform: uppercase; color: #1a1a1a; line-height: 1.2; }
     .cover-divider { width: 60px; height: 1px; background: #9a7f5a; }
-    .cover-store { font-size: 15px; color: #333; line-height: 2.2; }
-    .cover-location { font-size: 14px; color: #444; line-height: 1.8; margin-top: 4px; }
-    .cover-location strong { color: #1a1a1a; display: block; }
-    .cover-locations { display: flex; gap: 40px; justify-content: center; flex-wrap: wrap; margin-top: 4px; }
+    .cover-web { font-size: 22px; font-weight: 300; letter-spacing: 0.06em; color: #1a1a1a; }
+    .cover-social { display: flex; align-items: center; gap: 8px; font-size: 15px; color: #444; justify-content: center; }
     .cover-responsable { margin-top: 16px; border-top: 1px solid #d4c9b8; padding-top: 20px; width: 100%; text-align: left; font-size: 14px; color: #444; line-height: 2; }
     .cover-responsable strong { color: #1a1a1a; }
 
@@ -184,6 +182,10 @@ function catalogHTML(products, options = {}) {
     .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 40px; text-align: left; width: 100%; }
     .contact-block { font-size: 13px; color: #444; line-height: 1.9; }
     .contact-block strong { font-size: 14px; color: #1a1a1a; display: block; margin-bottom: 2px; }
+    .stores-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 40px; text-align: left; width: 100%; border-top: 1px solid #e8e2d9; padding-top: 24px; }
+    .store-block { font-size: 12px; color: #555; line-height: 1.8; }
+    .store-block h4 { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #9a7f5a; margin-bottom: 6px; }
+    .store-block .store-hours { margin-top: 8px; font-size: 11px; color: #777; line-height: 1.7; }
   </style>
 </head>
 <body>
@@ -195,13 +197,14 @@ function catalogHTML(products, options = {}) {
       <img src="${LOGO}" alt="Bucarest Art & Antiques">
       <div class="cover-divider"></div>
       <h1>${title}</h1>
-      <div class="cover-store">
-        Bucarest Art &amp; Antiques<br>
-        RUT: 76.121.552-3<br>
-        ventas@bucarestart.cl — www.bucarestart.cl
-      </div>
-      <div class="cover-locations">
-        ${storeAddressBlock()}
+      <div class="cover-web">bucarestart.cl</div>
+      <div class="cover-social">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a7f5a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+          <circle cx="12" cy="12" r="4"/>
+          <circle cx="17.5" cy="6.5" r="1" fill="#9a7f5a" stroke="none"/>
+        </svg>
+        @bucarestart
       </div>
       ${responsable || cargo || correo || telefono ? `
       <div class="cover-responsable">
@@ -243,6 +246,30 @@ function catalogHTML(products, options = {}) {
           <strong>Director de Operaciones: Ricardo Pizarro</strong>
           ricardo@bucarestart.cl<br>
           +56 9 3092 3700
+        </div>
+      </div>
+      <div class="stores-grid">
+        <div class="store-block">
+          <h4>Providencia</h4>
+          Bucarest 034, esquina Av. Providencia.<br>
+          Caracol Los Pájaros, locales 26 y 55,<br>
+          Av. Providencia 2348.
+          <div class="store-hours">
+            Lun – Vie: 09:30 – 18:30 hrs.<br>
+            Sáb: 10:00 – 14:00 hrs.<br>
+            Dom y festivos: Cerrado.
+          </div>
+        </div>
+        <div class="store-block">
+          <h4>Lo Barnechea</h4>
+          Av. Lo Barnechea 900.<br>
+          A pasos de la Parroquia Santa Rosa<br>
+          de Lo Barnechea y Av. Raúl Labbe.
+          <div class="store-hours">
+            Lun – Vie: 09:30 – 18:30 hrs.<br>
+            Sáb: 10:00 – 14:00 hrs.<br>
+            Dom y festivos: Cerrado.
+          </div>
         </div>
       </div>
     </div>
