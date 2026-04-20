@@ -354,6 +354,7 @@ function adminUI(host) {
     .product-item span{font-size:13px;color:#333;flex:1}
     .product-item input[type=checkbox]{width:16px;height:16px;accent-color:#9a7f5a;flex-shrink:0}
     .selected-count{font-size:12px;color:#9a7f5a;margin:10px 0}
+    .select-all-btn{background:none;border:none;font-size:12px;color:#9a7f5a;cursor:pointer;font-family:inherit;padding:10px 0;text-decoration:underline}
     .checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;color:#555;margin-bottom:8px}
     .checkbox-row input{width:16px;height:16px;accent-color:#9a7f5a}
     .btn-row{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap}
@@ -404,7 +405,10 @@ function adminUI(host) {
       </div>
       <div class="loading" id="cert-loading">Cargando productos…</div>
       <div class="product-list" id="cert-products" style="margin-top:12px"></div>
-      <div class="selected-count" id="cert-count"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="selected-count" id="cert-count"></div>
+        <button class="select-all-btn" id="cert-select-all" onclick="toggleSelectAll('cert')" style="display:none">Seleccionar todos</button>
+      </div>
     </div>
 
     <div class="card">
@@ -459,7 +463,10 @@ function adminUI(host) {
       </div>
       <div class="loading" id="catalog-loading">Cargando productos…</div>
       <div class="product-list" id="catalog-products" style="margin-top:12px"></div>
-      <div class="selected-count" id="catalog-count"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="selected-count" id="catalog-count"></div>
+        <button class="select-all-btn" id="catalog-select-all" onclick="toggleSelectAll('catalog')" style="display:none">Seleccionar todos</button>
+      </div>
     </div>
 
     <div class="btn-row">
@@ -508,7 +515,10 @@ function adminUI(host) {
       </div>
       <div class="loading" id="quote-loading">Cargando productos…</div>
       <div class="product-list" id="quote-products" style="margin-top:12px"></div>
-      <div class="selected-count" id="quote-count"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="selected-count" id="quote-count"></div>
+        <button class="select-all-btn" id="quote-select-all" onclick="toggleSelectAll('quote')" style="display:none">Seleccionar todos</button>
+      </div>
     </div>
 
     <div class="btn-row">
@@ -630,11 +640,25 @@ function renderProducts(prefix, products) {
     </label>\`;
   }).join('');
   count.textContent = products.length + ' productos encontrados';
+  const btn = document.getElementById(prefix + '-select-all');
+  if (btn) { btn.style.display = 'block'; btn.textContent = 'Seleccionar todos'; }
+}
+
+function toggleSelectAll(prefix) {
+  const checkboxes = document.querySelectorAll('[name="' + prefix + '_product"]');
+  const allChecked = Array.from(checkboxes).every(c => c.checked);
+  checkboxes.forEach(c => c.checked = !allChecked);
+  const btn = document.getElementById(prefix + '-select-all');
+  btn.textContent = allChecked ? 'Seleccionar todos' : 'Deseleccionar todos';
+  updateCount(prefix);
 }
 
 function updateCount(prefix) {
-  const checked = document.querySelectorAll('[name="' + prefix + '_product"]:checked').length;
+  const all = document.querySelectorAll('[name="' + prefix + '_product"]');
+  const checked = Array.from(all).filter(c => c.checked).length;
   document.getElementById(prefix + '-count').textContent = checked + ' producto(s) seleccionado(s)';
+  const btn = document.getElementById(prefix + '-select-all');
+  if (btn) btn.textContent = checked === all.length && all.length > 0 ? 'Deseleccionar todos' : 'Seleccionar todos';
 }
 
 function getSelectedIds(prefix) {
