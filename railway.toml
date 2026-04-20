@@ -1,5 +1,0 @@
-[deploy]
-startCommand = "node index.js"
-healthcheckPath = "/"
-healthcheckTimeout = 300
-restartPolicyType = "on_failure"

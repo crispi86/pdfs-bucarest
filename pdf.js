@@ -1,17 +1,13 @@
 const puppeteer = require('puppeteer');
 
 async function generatePDF(html) {
-  const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || undefined;
-
   const browser = await puppeteer.launch({
-    headless: 'new',
-    executablePath,
+    headless: true,
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
-      '--single-process',
     ],
   });
   try {
