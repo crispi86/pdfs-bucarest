@@ -375,12 +375,17 @@ function adminUI(host) {
     .filter-btn{padding:8px 16px;border:1px solid #ddd6cc;background:#fff;font-size:12px;cursor:pointer;font-family:inherit;letter-spacing:0.06em;text-transform:uppercase;transition:all 0.15s;color:#666}
     .filter-btn.active{border-color:#9a7f5a;background:#faf8f5;color:#9a7f5a}
     .filter-panel{display:none}.filter-panel.active{display:block}
-    .product-list{max-height:320px;overflow-y:auto;border:1px solid #e8e2d9;background:#fdfcfb}
-    .product-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid #f0ece6;cursor:pointer;transition:background 0.1s}
-    .product-item:hover{background:#faf8f5}
-    .product-item img{width:40px;height:40px;object-fit:cover;border:1px solid #e8e2d9;flex-shrink:0}
-    .product-item span{font-size:13px;color:#333;flex:1}
-    .product-item input[type=checkbox]{width:16px;height:16px;accent-color:#9a7f5a;flex-shrink:0}
+    .product-list{max-height:360px;overflow-y:auto;border:1px solid #e8e2d9;background:#fdfcfb}
+    .product-table{width:100%;border-collapse:collapse}
+    .product-table thead th{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#9a7f5a;padding:8px 12px;border-bottom:2px solid #e8e2d9;text-align:left;background:#fdfcfb;position:sticky;top:0}
+    .product-table thead th.col-check{width:36px}
+    .product-table thead th.col-sku{width:130px}
+    .product-table thead th.col-status{width:90px}
+    .product-table tbody tr{border-bottom:1px solid #f0ece6;cursor:pointer;transition:background 0.1s}
+    .product-table tbody tr:hover{background:#faf8f5}
+    .product-table tbody td{padding:10px 12px;font-size:13px;color:#333;vertical-align:middle}
+    .product-table td.col-check input{width:16px;height:16px;accent-color:#9a7f5a;cursor:pointer}
+    .product-table td.col-sku{font-size:12px;color:#999}
     .status-badge{font-size:10px;letter-spacing:0.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;flex-shrink:0}
     .status-active{background:#e6f4ea;color:#2d6a2d}
     .status-draft{background:#f0f0f0;color:#888}
@@ -438,6 +443,7 @@ function adminUI(host) {
         <button class="filter-btn active" onclick="setFilter('cert','collection')">Por colección</button>
         <button class="filter-btn" onclick="setFilter('cert','tag')">Por tag</button>
         <button class="filter-btn" onclick="setFilter('cert','title')">Por título</button>
+        <button class="filter-btn" onclick="setFilter('cert','metafield')">Por metacampo</button>
       </div>
       <div id="cert-filter-collection" class="filter-panel active">
         <label>Colección
@@ -449,6 +455,13 @@ function adminUI(host) {
       </div>
       <div id="cert-filter-title" class="filter-panel">
         <label>Palabra en título <input id="cert-title" placeholder="Ej: óleo" oninput="debounce(() => loadProducts('cert'), 600)"></label>
+      </div>
+      <div id="cert-filter-metafield" class="filter-panel">
+        <div class="row row-3">
+          <label>Namespace <input id="cert-meta-ns" placeholder="custom"></label>
+          <label>Key <input id="cert-meta-key" placeholder="material"></label>
+          <label>Valor <input id="cert-meta-val" placeholder="bronce" oninput="debounce(() => loadProducts('cert'), 800)"></label>
+        </div>
       </div>
       <div class="loading" id="cert-loading">Cargando productos…</div>
       <div class="status-filter" id="cert-status-filter" style="display:none;margin-top:12px">
@@ -584,6 +597,7 @@ function adminUI(host) {
         <button class="filter-btn active" onclick="setFilter('quote','collection')">Por colección</button>
         <button class="filter-btn" onclick="setFilter('quote','tag')">Por tag</button>
         <button class="filter-btn" onclick="setFilter('quote','title')">Por título</button>
+        <button class="filter-btn" onclick="setFilter('quote','metafield')">Por metacampo</button>
       </div>
       <div id="quote-filter-collection" class="filter-panel active">
         <label>Colección <select id="quote-collection" onchange="loadProducts('quote')"><option value="">Seleccione…</option></select></label>
@@ -593,6 +607,13 @@ function adminUI(host) {
       </div>
       <div id="quote-filter-title" class="filter-panel">
         <label>Palabra en título <input id="quote-title" placeholder="Ej: velador" oninput="debounce(() => loadProducts('quote'), 600)"></label>
+      </div>
+      <div id="quote-filter-metafield" class="filter-panel">
+        <div class="row row-3">
+          <label>Namespace <input id="quote-meta-ns" placeholder="custom"></label>
+          <label>Key <input id="quote-meta-key" placeholder="material"></label>
+          <label>Valor <input id="quote-meta-val" placeholder="bronce" oninput="debounce(() => loadProducts('quote'), 800)"></label>
+        </div>
       </div>
       <div class="loading" id="quote-loading">Cargando productos…</div>
       <div class="status-filter" id="quote-status-filter" style="display:none;margin-top:12px">
@@ -746,18 +767,35 @@ function renderProducts(prefix, products, filter) {
     if (btn) btn.style.display = 'none';
     return;
   }
-  list.innerHTML = filtered.map(p => {
-    const img = p.images && p.images[0] ? p.images[0].src : '';
-    return \`<label class="product-item">
-      <input type="checkbox" name="\${prefix}_product" value="\${p.id}" onchange="updateCount('\${prefix}')">
-      \${img ? \`<img src="\${img}" alt="">\` : '<div style="width:40px;height:40px;background:#f0ece8;flex-shrink:0"></div>'}
-      <span>\${p.title}</span>
-      \${statusBadge(p.status)}
-    </label>\`;
-  }).join('');
+  list.innerHTML = \`<table class="product-table">
+    <thead><tr>
+      <th class="col-check"></th>
+      <th>Título</th>
+      <th class="col-sku">SKU</th>
+      <th class="col-status">Estado</th>
+    </tr></thead>
+    <tbody>
+      \${filtered.map(p => {
+        const sku = p.variants && p.variants[0] && p.variants[0].sku ? p.variants[0].sku : '—';
+        return \`<tr onclick="toggleRow(this)">
+          <td class="col-check"><input type="checkbox" name="\${prefix}_product" value="\${p.id}" onchange="updateCount('\${prefix}');event.stopPropagation()"></td>
+          <td>\${p.title}</td>
+          <td class="col-sku">\${sku}</td>
+          <td>\${statusBadge(p.status)}</td>
+        </tr>\`;
+      }).join('')}
+    </tbody>
+  </table>\`;
   count.textContent = filtered.length + ' producto(s) encontrado(s)';
   const btn = document.getElementById(prefix + '-select-all');
   if (btn) { btn.style.display = 'block'; btn.textContent = 'Seleccionar todos'; }
+}
+
+function toggleRow(tr) {
+  const cb = tr.querySelector('input[type=checkbox]');
+  cb.checked = !cb.checked;
+  const prefix = cb.name.replace('_product', '');
+  updateCount(prefix);
 }
 
 function filterByStatus(prefix, status, el) {
