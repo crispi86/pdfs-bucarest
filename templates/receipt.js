@@ -37,7 +37,7 @@ function receiptHTML(order) {
     </tr>`;
   }).join('');
 
-  const logo = 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/Captura_de_pantalla_2025-09-07_a_la_s_22.05.33.png?v=1757293894';
+  const logo = 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/logo_web.png?v=1765624776';
 
   return `<!DOCTYPE html>
 <html>

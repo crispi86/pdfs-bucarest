@@ -84,7 +84,7 @@ function quoteHTML(products, options = {}) {
 </head>
 <body>
   <div class="q-header">
-    <img class="q-logo" src="https://cdn.shopify.com/s/files/1/0814/7671/4798/files/Captura_de_pantalla_2025-09-07_a_la_s_22.05.33.png?v=1757293894" alt="Bucarest Art & Antiques">
+    <img class="q-logo" src="https://cdn.shopify.com/s/files/1/0814/7671/4798/files/logo_web.png?v=1765624776" alt="Bucarest Art & Antiques">
     <div class="q-meta">
       <h1>Cotización</h1>
       <div class="q-meta-detail">
