@@ -217,11 +217,15 @@ app.post('/generate/certificate', async (req, res) => {
 // ── Generar catálogo ──────────────────────────────────────────────────────────
 app.post('/generate/catalog', async (req, res) => {
   try {
-    const { product_ids, title, show_prices, send_email } = req.body;
+    const { product_ids, title, show_prices, send_email, responsable, cargo, correo, telefono } = req.body;
     const ids = Array.isArray(product_ids) ? product_ids : [product_ids];
 
     const products = await Promise.all(ids.map(id => shopify.getProductById(id)));
-    const html = catalogHTML(products, { title: title || 'Catálogo', showPrices: show_prices !== 'false' });
+    const html = catalogHTML(products, {
+      title: title || 'Catálogo',
+      showPrices: show_prices !== 'false',
+      responsable, cargo, correo, telefono,
+    });
     const pdf = await generatePDF(html);
 
     if (send_email) {
@@ -435,6 +439,18 @@ function adminUI(host) {
       <span class="section-label">Título del catálogo</span>
       <input id="catalog-title" placeholder="Ej: Catálogo Pintura Siglo XIX" style="width:100%;margin-bottom:16px">
       <div class="checkbox-row"><input type="checkbox" id="catalog-prices" checked><label for="catalog-prices" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar precios</label></div>
+    </div>
+
+    <div class="card">
+      <span class="section-label">Responsable del catálogo (aparece en portada y contraportada)</span>
+      <div class="row row-2">
+        <label>Responsable <input id="catalog-responsable" placeholder="Nombre Apellido"></label>
+        <label>Cargo <input id="catalog-cargo" placeholder="Ej: Ejecutivo de Ventas"></label>
+      </div>
+      <div class="row row-2">
+        <label>Correo <input id="catalog-correo" type="email" placeholder="correo@bucarestart.cl"></label>
+        <label>Teléfono <input id="catalog-telefono" placeholder="+56 9 XXXX XXXX"></label>
+      </div>
     </div>
 
     <div class="card">
@@ -694,6 +710,10 @@ async function generate(type, sendEmail = false) {
     if (type === 'catalog') {
       body.title = document.getElementById('catalog-title').value || 'Catálogo';
       body.show_prices = document.getElementById('catalog-prices').checked ? 'true' : 'false';
+      body.responsable = document.getElementById('catalog-responsable').value;
+      body.cargo = document.getElementById('catalog-cargo').value;
+      body.correo = document.getElementById('catalog-correo').value;
+      body.telefono = document.getElementById('catalog-telefono').value;
       body.send_email = sendEmail;
     }
     if (type === 'quote') {
