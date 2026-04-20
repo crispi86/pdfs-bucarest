@@ -13,31 +13,8 @@ const shopify = require('./shopify');
 
 const app = express();
 
-// ── Sesiones en memoria ───────────────────────────────────────────────────────
+// ── OAuth state store ─────────────────────────────────────────────────────────
 const pendingStates = new Map(); // state -> host
-const sessions = new Map();      // token -> { shop, expires }
-
-function getSession(req) {
-  const raw = req.headers.cookie || '';
-  const m = raw.match(/b_session=([a-f0-9]+)/);
-  if (!m) return null;
-  const s = sessions.get(m[1]);
-  return s && s.expires > Date.now() ? s : null;
-}
-
-function setSessionCookie(res, token) {
-  res.setHeader('Set-Cookie', `b_session=${token}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=86400`);
-}
-
-function requireAuth(req, res, next) {
-  if (getSession(req)) return next();
-  const shop = req.query.shop || process.env.SHOPIFY_SHOP;
-  const host = req.query.host || '';
-  const authUrl = `/shopify/auth?shop=${encodeURIComponent(shop)}&host=${encodeURIComponent(host)}`;
-  res.send(`<!DOCTYPE html><html><head>
-    <script>window.top.location.href = ${JSON.stringify(authUrl)};</script>
-  </head><body></body></html>`);
-}
 
 app.use('/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
@@ -89,10 +66,6 @@ app.get('/shopify/callback', async (req, res) => {
   });
   const { access_token } = await r.json();
 
-  const token = crypto.randomBytes(32).toString('hex');
-  sessions.set(token, { shop, accessToken: access_token, expires: Date.now() + 86400_000 });
-
-  setSessionCookie(res, token);
   res.redirect(`https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}`);
 });
 
@@ -144,7 +117,7 @@ app.post('/webhook/orders/paid', async (req, res) => {
 });
 
 // ── Interfaz web ──────────────────────────────────────────────────────────────
-app.get('/admin', requireAuth, (req, res) => {
+app.get('/admin', (req, res) => {
   res.setHeader('Content-Security-Policy',
     `frame-ancestors https://${process.env.SHOPIFY_SHOP} https://admin.shopify.com`);
   res.send(adminUI(req.query.host || ''));
