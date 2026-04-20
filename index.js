@@ -96,35 +96,50 @@ app.post('/webhook/orders/paid', async (req, res) => {
 
   try {
     const order = JSON.parse(req.body);
-    const pinturaId = process.env.PINTURA_COLLECTION_ID;
-    const pinturaProducts = await shopify.getProductsByCollection(pinturaId);
-    const pinturaIds = new Set(pinturaProducts.map(p => p.id));
-
-    const pinturaItems = (order.line_items || []).filter(item => pinturaIds.has(item.product_id));
-    if (pinturaItems.length === 0) return;
-
     const customer = order.customer || {};
     const customerName = customer.first_name
       ? `${customer.first_name} ${customer.last_name || ''}`.trim()
       : 'Cliente';
     const customerEmail = customer.email;
 
-    const lineItems = pinturaItems.map(item => ({
-      title: item.title,
-      image: item.image?.src || null,
-      price: parseFloat(item.price),
-      currency: order.currency || 'CLP',
-      description: null,
-    }));
-
-    const html = certificateHTML(lineItems);
-    const pdf = await generatePDF(html);
+    // Enviar comprobante de venta a todos los pedidos pagados
+    const receiptHtml = receiptHTML(order);
+    const receiptPdf = await generatePDF(receiptHtml);
+    const filename = `Comprobante_${order.name || order.order_number}.pdf`;
 
     if (customerEmail) {
-      await sendCertificate(customerEmail, customerName, pdf, pinturaItems.map(i => i.title).join(', '));
+      await sendPDFToInternal(receiptPdf, filename,
+        `Comprobante de venta — ${order.name || '#' + order.order_number}`,
+        `<p>Estimado/a ${customerName},</p><p>Adjunto encontrará su comprobante de venta. Gracias por su compra en Bucarest Art &amp; Antiques.</p>`,
+        customerEmail
+      );
     }
 
-    console.log(`✅ Certificado enviado para orden ${order.order_number}`);
+    // Certificado de autenticidad solo para productos de la colección Pintura
+    const pinturaId = process.env.PINTURA_COLLECTION_ID;
+    if (pinturaId) {
+      const pinturaProducts = await shopify.getProductsByCollection(pinturaId);
+      const pinturaIds = new Set(pinturaProducts.map(p => p.id));
+      const pinturaItems = (order.line_items || []).filter(item => pinturaIds.has(item.product_id));
+
+      if (pinturaItems.length > 0) {
+        const lineItems = pinturaItems.map(item => ({
+          title: item.title,
+          image: item.image?.src || null,
+          price: parseFloat(item.price),
+          currency: order.currency || 'CLP',
+          description: null,
+        }));
+        const certHtml = certificateHTML(lineItems);
+        const certPdf = await generatePDF(certHtml);
+        if (customerEmail) {
+          await sendCertificate(customerEmail, customerName, certPdf, pinturaItems.map(i => i.title).join(', '));
+        }
+        console.log(`✅ Certificado enviado para orden ${order.order_number}`);
+      }
+    }
+
+    console.log(`✅ Comprobante enviado para orden ${order.order_number}`);
   } catch (err) {
     console.error('Error procesando webhook:', err);
   }

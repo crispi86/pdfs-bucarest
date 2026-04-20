@@ -29,14 +29,15 @@ async function sendCertificate(toEmail, toName, pdfBuffer, productName) {
   console.log('Resend result:', JSON.stringify(result));
 }
 
-async function sendPDFToInternal(pdfBuffer, filename, subject, bodyHtml) {
+async function sendPDFToInternal(pdfBuffer, filename, subject, bodyHtml, extraTo = null) {
   const resend = getResend();
   const internalEmails = process.env.INTERNAL_EMAILS.split(',').map(e => e.trim());
+  const to = extraTo ? [extraTo, ...internalEmails] : internalEmails;
   const from = process.env.FROM_EMAIL || 'Bucarest Art & Antiques <onboarding@resend.dev>';
 
   await resend.emails.send({
     from,
-    to: internalEmails,
+    to,
     subject,
     html: bodyHtml,
     attachments: [{ filename, content: pdfBuffer.toString('base64') }],
