@@ -164,8 +164,18 @@ app.get('/api/collections', async (req, res) => {
 
 app.get('/api/files', async (req, res) => {
   try {
-    const files = await shopify.getFiles();
-    res.json(files);
+    const products = await shopify.getAllPages('products.json?fields=id,title,images&limit=250', 'products');
+    const images = [];
+    const seen = new Set();
+    for (const p of products) {
+      for (const img of (p.images || [])) {
+        if (img.src && !seen.has(img.src)) {
+          seen.add(img.src);
+          images.push({ url: img.src, altText: p.title });
+        }
+      }
+    }
+    res.json(images);
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
