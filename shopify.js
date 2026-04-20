@@ -105,6 +105,15 @@ async function getProductById(productId) {
   return body.product;
 }
 
+async function getProductMetafields(productId) {
+  const { body } = await shopifyRequest('GET', `products/${productId}/metafields.json?namespace=custom`);
+  const result = {};
+  for (const m of (body.metafields || [])) {
+    result[m.key] = m.value;
+  }
+  return result;
+}
+
 async function getFiles() {
   const token = process.env.SHOPIFY_ACCESS_TOKEN;
   const query = `{
@@ -171,6 +180,7 @@ module.exports = {
   getProductsByTitle,
   getProductsByMetafield,
   getProductById,
+  getProductMetafields,
   getCollections,
   isProductInCollection,
   getAllPages,

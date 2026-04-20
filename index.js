@@ -229,7 +229,11 @@ app.post('/generate/catalog', async (req, res) => {
     const { product_ids, title, show_prices, send_email, responsable, cargo, correo, telefono, bg_image } = req.body;
     const ids = Array.isArray(product_ids) ? product_ids : [product_ids];
 
-    const products = await Promise.all(ids.map(id => shopify.getProductById(id)));
+    const products = await Promise.all(ids.map(async id => {
+      const p = await shopify.getProductById(id);
+      p._metafields = await shopify.getProductMetafields(id);
+      return p;
+    }));
     const html = catalogHTML(products, {
       title: title || 'Catálogo',
       showPrices: show_prices !== 'false',

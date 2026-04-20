@@ -9,29 +9,72 @@ function catalogHTML(products, options = {}) {
     bgImage = '',
   } = options;
 
-  const LOGO = 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/logo_web.png?v=1765624776';
+  const LOGO    = 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/logo_web.png?v=1765624776';
   const TEXTURA = bgImage || 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura21.jpg?v=1772584942';
 
   function formatPrice(amount, currency = 'CLP') {
-    return new Intl.NumberFormat('es-CL', { style: 'currency', currency }).format(amount);
+    return new Intl.NumberFormat('es-CL', { style: 'currency', currency }).format(parseFloat(amount));
   }
 
-  const items = products.map(p => {
-    const image = p.images && p.images[0] ? p.images[0].src : null;
-    const price = p.variants && p.variants[0] ? p.variants[0].price : null;
-    const currency = p.variants && p.variants[0] ? (p.variants[0].presentment_prices?.[0]?.price?.currency_code || 'CLP') : 'CLP';
+  const META_LABELS = {
+    origen:           'Origen',
+    epocas:           'Época',
+    estilo_de_diseno: 'Estilo de diseño',
+    materiales:       'Materiales',
+    estado:           'Estado',
+    ancho:            'Ancho',
+    profundidad:      'Profundidad',
+    alto:             'Alto',
+  };
 
-    return `
-      <div class="catalog-item">
-        ${image ? `<div class="catalog-image"><img src="${image}" alt="${p.title}"></div>` : '<div class="catalog-image catalog-image--empty"></div>'}
-        <div class="catalog-info">
-          <h3 class="catalog-title">${p.title}</h3>
-          ${showPrices && price ? `<p class="catalog-price">${formatPrice(price, currency)}</p>` : ''}
-          ${p.body_html ? `<div class="catalog-desc">${p.body_html}</div>` : ''}
-        </div>
-      </div>
-    `;
-  }).join('');
+  function metaTable(meta = {}) {
+    const rows = Object.entries(META_LABELS)
+      .filter(([key]) => meta[key])
+      .map(([key, label]) => `<tr><td class="meta-label">${label}</td><td class="meta-value">${meta[key]}</td></tr>`)
+      .join('');
+    return rows ? `<table class="meta-table">${rows}</table>` : '';
+  }
+
+  function productRow(p, index) {
+    const image    = p.images && p.images[0] ? p.images[0].src : null;
+    const price    = p.variants && p.variants[0] ? p.variants[0].price : null;
+    const currency = p.variants && p.variants[0]
+      ? (p.variants[0].presentment_prices?.[0]?.price?.currency_code || 'CLP') : 'CLP';
+    const meta     = p._metafields || {};
+    const desc     = p.body_html ? p.body_html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() : '';
+
+    const imgBlock = `<div class="prod-img-wrap">
+      ${image
+        ? `<img src="${image}" alt="${p.title}">`
+        : '<div class="prod-img-empty"></div>'}
+    </div>`;
+
+    const textBlock = `<div class="prod-text">
+      <h2 class="prod-title">${p.title}</h2>
+      ${showPrices && price ? `<p class="prod-price">${formatPrice(price, currency)}</p>` : ''}
+      ${desc ? `<p class="prod-desc">${desc}</p>` : ''}
+      ${metaTable(meta)}
+    </div>`;
+
+    // Alterna: par → imagen izquierda | texto derecha; impar → texto izquierda | imagen derecha
+    const [left, right] = index % 2 === 0
+      ? [imgBlock, textBlock]
+      : [textBlock, imgBlock];
+
+    return `<div class="prod-row">${left}${right}</div>`;
+  }
+
+  // Agrupa en pares para que cada página tenga 2 productos
+  const pairs = [];
+  for (let i = 0; i < products.length; i += 2) {
+    pairs.push(products.slice(i, i + 2));
+  }
+
+  const pages = pairs.map(pair => `
+    <div class="prod-page">
+      ${pair.map((p, j) => productRow(p, pairs.indexOf(pair) * 2 + j)).join('<div class="prod-divider"></div>')}
+    </div>
+  `).join('');
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -41,136 +84,84 @@ function catalogHTML(products, options = {}) {
   <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
   <style>
     * { font-family: "Hanken Grotesk", sans-serif !important; box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #fff; color: #333; }
+    body { background: #fff; color: #1a1a1a; }
 
     /* ── Portada ── */
     .cover {
-      width: 100vw;
-      min-height: 100vh;
-      page-break-after: always;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 60px 48px;
+      width: 100vw; min-height: 100vh; page-break-after: always;
+      position: relative; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center; padding: 60px 48px;
     }
     .cover-bg {
-      position: absolute;
-      inset: 0;
-      background: url('${TEXTURA}') center center / cover no-repeat;
-      z-index: 0;
+      position: absolute; inset: 0;
+      background: url('${TEXTURA}') center center / cover no-repeat; z-index: 0;
     }
     .cover-content {
-      position: relative;
-      z-index: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 28px;
-      width: 100%;
-      background: rgba(255,255,255,0.78);
-      padding: 48px 56px;
-      border-radius: 4px;
+      position: relative; z-index: 1; display: flex; flex-direction: column;
+      align-items: center; gap: 28px; width: 100%;
+      background: rgba(255,255,255,0.78); padding: 48px 56px; border-radius: 4px;
     }
     .cover img { max-width: 220px; }
-    .cover h1 {
-      font-size: 36px;
-      font-weight: 300;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #1a1a1a;
-      line-height: 1.2;
-    }
-    .cover-divider {
-      width: 60px;
-      height: 1px;
-      background: #9a7f5a;
-    }
-    .cover-store {
-      font-size: 13px;
-      color: #444;
-      line-height: 2;
-    }
-    .cover-responsable {
-      margin-top: 16px;
-      border-top: 1px solid #d4c9b8;
-      padding-top: 20px;
-      width: 320px;
-      text-align: left;
-      font-size: 13px;
-      color: #444;
-      line-height: 2;
-    }
+    .cover h1 { font-size: 36px; font-weight: 300; letter-spacing: 0.08em; text-transform: uppercase; color: #1a1a1a; line-height: 1.2; }
+    .cover-divider { width: 60px; height: 1px; background: #9a7f5a; }
+    .cover-store { font-size: 13px; color: #444; line-height: 2; }
+    .cover-responsable { margin-top: 16px; border-top: 1px solid #d4c9b8; padding-top: 20px; width: 320px; text-align: left; font-size: 13px; color: #444; line-height: 2; }
     .cover-responsable strong { color: #1a1a1a; }
 
-    /* ── Productos ── */
-    .catalog-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; }
-    .catalog-item { padding: 28px 32px; border-right: 1px solid #e8e2d9; border-bottom: 1px solid #e8e2d9; page-break-inside: avoid; }
-    .catalog-item:nth-child(2n) { border-right: none; }
-    .catalog-image { width: 100%; aspect-ratio: 4/3; overflow: hidden; margin-bottom: 16px; background: #f5f3f0; }
-    .catalog-image img { width: 100%; height: 100%; object-fit: cover; }
-    .catalog-image--empty { background: #f0ede8; }
-    .catalog-title { font-size: 15px; font-weight: 600; margin: 0 0 6px; color: #1a1a1a; }
-    .catalog-price { font-size: 14px; color: #9a7f5a; margin: 0 0 10px; font-weight: 500; }
-    .catalog-desc { font-size: 13px; color: #666; line-height: 1.6; }
-    .catalog-desc p { margin: 0; }
+    /* ── Páginas de productos ── */
+    .prod-page {
+      page-break-after: always;
+      display: flex; flex-direction: column;
+      min-height: 100vh;
+    }
+    .prod-row {
+      flex: 1;
+      display: flex;
+      align-items: stretch;
+      min-height: 50vh;
+    }
+    .prod-divider { height: 1px; background: #e8e2d9; margin: 0 32px; }
+    .prod-img-wrap {
+      flex: 1.1;
+      overflow: hidden;
+      background: #f5f3f0;
+    }
+    .prod-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .prod-img-empty { width: 100%; height: 100%; background: #ede9e4; }
+    .prod-text {
+      flex: 1;
+      padding: 36px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 14px;
+      border-left: 1px solid #e8e2d9;
+    }
+    .prod-row:nth-child(odd) .prod-text { border-left: none; border-right: 1px solid #e8e2d9; }
+    .prod-title { font-size: 20px; font-weight: 400; color: #1a1a1a; line-height: 1.3; }
+    .prod-price { font-size: 16px; color: #9a7f5a; font-weight: 500; }
+    .prod-desc { font-size: 12px; color: #666; line-height: 1.7; }
+    .meta-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+    .meta-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #9a7f5a; padding: 4px 0; width: 40%; vertical-align: top; }
+    .meta-value { font-size: 12px; color: #444; padding: 4px 0; }
 
     /* ── Contraportada ── */
     .backcover {
-      width: 100vw;
-      min-height: 100vh;
-      page-break-before: always;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 60px 48px;
-      text-align: center;
+      width: 100vw; min-height: 100vh; page-break-before: always;
+      position: relative; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; padding: 60px 48px; text-align: center;
     }
-    .backcover-bg {
-      position: absolute;
-      inset: 0;
-      background: url('${TEXTURA}') center center / cover no-repeat;
-      opacity: 0.35;
-      z-index: 0;
-    }
+    .backcover-bg { position: absolute; inset: 0; background: url('${TEXTURA}') center center / cover no-repeat; opacity: 0.35; z-index: 0; }
     .backcover-content {
-      position: relative;
-      z-index: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 32px;
-      width: 100%;
-      max-width: 560px;
-      background: rgba(255,255,255,0.82);
-      padding: 48px 56px;
-      border-radius: 4px;
+      position: relative; z-index: 1; display: flex; flex-direction: column;
+      align-items: center; gap: 32px; width: 100%; max-width: 560px;
+      background: rgba(255,255,255,0.82); padding: 48px 56px; border-radius: 4px;
     }
     .backcover img { max-width: 180px; }
-    .backcover h2 {
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: #9a7f5a;
-    }
-    .backcover-store {
-      font-size: 13px;
-      color: #333;
-      line-height: 2;
-    }
+    .backcover h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: #9a7f5a; }
+    .backcover-store { font-size: 13px; color: #333; line-height: 2; }
     .backcover-divider { width: 40px; height: 1px; background: #9a7f5a; }
-    .contact-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 24px 40px;
-      text-align: left;
-      width: 100%;
-    }
+    .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 40px; text-align: left; width: 100%; }
     .contact-block { font-size: 12px; color: #444; line-height: 1.9; }
     .contact-block strong { font-size: 13px; color: #1a1a1a; display: block; margin-bottom: 2px; }
   </style>
@@ -201,7 +192,7 @@ function catalogHTML(products, options = {}) {
   </div>
 
   <!-- PRODUCTOS -->
-  <div class="catalog-grid">${items}</div>
+  ${pages}
 
   <!-- CONTRAPORTADA -->
   <div class="backcover">
@@ -220,7 +211,7 @@ function catalogHTML(products, options = {}) {
         ${responsable ? `<div class="contact-block">
           <strong>${cargo || 'Responsable'}: ${responsable}</strong>
           ${correo ? correo + '<br>' : ''}
-          ${telefono ? telefono : ''}
+          ${telefono || ''}
         </div>` : ''}
         <div class="contact-block">
           <strong>Director Ejecutivo: Cristóbal Pizarro</strong>
