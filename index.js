@@ -33,7 +33,10 @@ function requireAuth(req, res, next) {
   if (getSession(req)) return next();
   const shop = req.query.shop || process.env.SHOPIFY_SHOP;
   const host = req.query.host || '';
-  res.redirect(`/shopify/auth?shop=${encodeURIComponent(shop)}&host=${encodeURIComponent(host)}`);
+  const authUrl = `/shopify/auth?shop=${encodeURIComponent(shop)}&host=${encodeURIComponent(host)}`;
+  res.send(`<!DOCTYPE html><html><head>
+    <script>window.top.location.href = ${JSON.stringify(authUrl)};</script>
+  </head><body></body></html>`);
 }
 
 app.use('/webhook', express.raw({ type: 'application/json' }));
@@ -55,7 +58,12 @@ app.get('/shopify/auth', (req, res) => {
     redirect_uri: `${process.env.APP_URL}/shopify/callback`,
     state,
   });
-  res.redirect(`https://${shop}/admin/oauth/authorize?${params}`);
+  const authUrl = `https://${shop}/admin/oauth/authorize?${params}`;
+
+  // Escapar el iframe con un redirect a nivel de página completa
+  res.send(`<!DOCTYPE html><html><head>
+    <script>window.top.location.href = ${JSON.stringify(authUrl)};</script>
+  </head><body></body></html>`);
 });
 
 // ── OAuth: callback ───────────────────────────────────────────────────────────
