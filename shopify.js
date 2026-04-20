@@ -161,9 +161,9 @@ async function formatMetafieldValue(value) {
 
   // Array de GIDs de metaobjetos
   if (Array.isArray(parsed)) {
-    const names = await Promise.all(parsed.map(item => {
+    const names = await Promise.all(parsed.map(async item => {
       if (typeof item === 'string' && item.startsWith('gid://shopify/Metaobject/')) {
-        return resolveMetaobjectDisplayName(item);
+        return (await resolveMetaobjectDisplayName(item)) || item;
       }
       return item;
     }));
@@ -173,7 +173,7 @@ async function formatMetafieldValue(value) {
   // GID único de metaobjeto
   const strVal = typeof parsed === 'string' ? parsed : String(value);
   if (strVal.startsWith('gid://shopify/Metaobject/')) {
-    return await resolveMetaobjectDisplayName(strVal);
+    return (await resolveMetaobjectDisplayName(strVal)) || strVal;
   }
 
   return value;
