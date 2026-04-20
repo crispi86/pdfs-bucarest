@@ -28,6 +28,34 @@ function shopifyRequest(method, path, body = null) {
   });
 }
 
+function graphqlRequest(query) {
+  const token = process.env.SHOPIFY_ACCESS_TOKEN;
+  const bodyStr = JSON.stringify({ query });
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: process.env.SHOPIFY_SHOP,
+      path: '/admin/api/2024-01/graphql.json',
+      method: 'POST',
+      headers: {
+        'X-Shopify-Access-Token': token,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(bodyStr),
+      },
+    };
+    const req = https.request(options, res => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch(e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
+    req.write(bodyStr);
+    req.end();
+  });
+}
+
 function getNextPageInfo(linkHeader) {
   if (!linkHeader) return null;
   const match = linkHeader.match(/<[^>]*[?&]page_info=([^&>]+)[^>]*>;\s*rel="next"/);
@@ -53,14 +81,11 @@ async function getAllPages(path, key) {
 }
 
 async function getOrder(orderId) {
-  // Limpiar # si el usuario lo ingresó
   const clean = String(orderId).replace('#', '').trim();
 
-  // Intentar por ID directo
   const { body } = await shopifyRequest('GET', `orders/${clean}.json`);
   if (body.order) return body.order;
 
-  // Si no encontró, buscar por número de orden
   const { body: body2 } = await shopifyRequest('GET', `orders.json?name=%23${clean}&status=any`);
   const found = (body2.orders || [])[0];
   if (found) return found;
@@ -105,12 +130,61 @@ async function getProductById(productId) {
   return body.product;
 }
 
+// Cache para no llamar el mismo metaobjeto dos veces en la misma sesión
+const metaobjectCache = {};
+
+async function resolveMetaobjectDisplayName(gid) {
+  if (metaobjectCache[gid] !== undefined) return metaobjectCache[gid];
+  try {
+    const result = await graphqlRequest(
+      `{ node(id: ${JSON.stringify(gid)}) { ... on Metaobject { displayName } } }`
+    );
+    const name = result?.data?.node?.displayName || null;
+    metaobjectCache[gid] = name;
+    return name;
+  } catch {
+    metaobjectCache[gid] = null;
+    return null;
+  }
+}
+
+async function formatMetafieldValue(value) {
+  if (value === null || value === undefined) return value;
+
+  let parsed;
+  try { parsed = JSON.parse(value); } catch { parsed = value; }
+
+  // Medida: {"value":30.0,"unit":"cm"}
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'value' in parsed && 'unit' in parsed) {
+    return `${parsed.value} ${parsed.unit}`;
+  }
+
+  // Array de GIDs de metaobjetos
+  if (Array.isArray(parsed)) {
+    const names = await Promise.all(parsed.map(item => {
+      if (typeof item === 'string' && item.startsWith('gid://shopify/Metaobject/')) {
+        return resolveMetaobjectDisplayName(item);
+      }
+      return item;
+    }));
+    return names.filter(Boolean).join(', ');
+  }
+
+  // GID único de metaobjeto
+  const strVal = typeof parsed === 'string' ? parsed : String(value);
+  if (strVal.startsWith('gid://shopify/Metaobject/')) {
+    return await resolveMetaobjectDisplayName(strVal);
+  }
+
+  return value;
+}
+
 async function getProductMetafields(productId) {
   const { body } = await shopifyRequest('GET', `products/${productId}/metafields.json?namespace=custom`);
   const result = {};
-  for (const m of (body.metafields || [])) {
-    result[m.key] = m.value;
-  }
+  await Promise.all((body.metafields || []).map(async m => {
+    result[m.key] = await formatMetafieldValue(m.value);
+  }));
   return result;
 }
 
@@ -164,6 +238,11 @@ async function getCollections() {
   return [...custom, ...smart].sort((a, b) => a.title.localeCompare(b.title));
 }
 
+async function getLocations() {
+  const { body } = await shopifyRequest('GET', 'locations.json');
+  return (body.locations || []).filter(l => l.active);
+}
+
 async function isProductInCollection(productId, collectionId) {
   const { body } = await shopifyRequest('GET', `collects.json?product_id=${productId}&collection_id=${collectionId}`);
   if (body.collects && body.collects.length > 0) return true;
@@ -182,6 +261,7 @@ module.exports = {
   getProductById,
   getProductMetafields,
   getCollections,
+  getLocations,
   isProductInCollection,
   getAllPages,
 };

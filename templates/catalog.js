@@ -7,6 +7,7 @@ function catalogHTML(products, options = {}) {
     correo = '',
     telefono = '',
     bgImage = '',
+    locations = [],
   } = options;
 
   const LOGO    = 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/logo_web.png?v=1765624776';
@@ -35,6 +36,18 @@ function catalogHTML(products, options = {}) {
     return rows ? `<table class="meta-table">${rows}</table>` : '';
   }
 
+  // Construir bloque de tiendas desde las ubicaciones de Shopify
+  function storeAddressBlock() {
+    if (locations && locations.length > 0) {
+      return locations.map(loc => {
+        const parts = [loc.address1, loc.city].filter(Boolean).join(', ');
+        return `<div class="cover-location"><strong>${loc.name}</strong>${parts ? `<br>${parts}` : ''}</div>`;
+      }).join('');
+    }
+    // Fallback
+    return `<div>Av. El Bosque Norte 0177, Las Condes, Santiago</div>`;
+  }
+
   function productRow(p, index) {
     const image    = p.images && p.images[0] ? p.images[0].src : null;
     const price    = p.variants && p.variants[0] ? p.variants[0].price : null;
@@ -56,7 +69,7 @@ function catalogHTML(products, options = {}) {
       ${metaTable(meta)}
     </div>`;
 
-    // Alterna: par → imagen izquierda | texto derecha; impar → texto izquierda | imagen derecha
+    // Par → imagen izquierda | texto derecha; impar → texto izquierda | imagen derecha
     const [left, right] = index % 2 === 0
       ? [imgBlock, textBlock]
       : [textBlock, imgBlock];
@@ -98,52 +111,59 @@ function catalogHTML(products, options = {}) {
     }
     .cover-content {
       position: relative; z-index: 1; display: flex; flex-direction: column;
-      align-items: center; gap: 28px; width: 100%;
-      background: rgba(255,255,255,0.78); padding: 48px 56px; border-radius: 4px;
+      align-items: center; gap: 24px; width: 100%; max-width: 640px;
+      background: rgba(255,255,255,0.55); padding: 52px 60px; border-radius: 4px;
     }
-    .cover img { max-width: 220px; }
-    .cover h1 { font-size: 36px; font-weight: 300; letter-spacing: 0.08em; text-transform: uppercase; color: #1a1a1a; line-height: 1.2; }
+    .cover img { max-width: 240px; }
+    .cover h1 { font-size: 44px; font-weight: 300; letter-spacing: 0.08em; text-transform: uppercase; color: #1a1a1a; line-height: 1.2; }
     .cover-divider { width: 60px; height: 1px; background: #9a7f5a; }
-    .cover-store { font-size: 13px; color: #444; line-height: 2; }
-    .cover-responsable { margin-top: 16px; border-top: 1px solid #d4c9b8; padding-top: 20px; width: 320px; text-align: left; font-size: 13px; color: #444; line-height: 2; }
+    .cover-store { font-size: 15px; color: #333; line-height: 2.2; }
+    .cover-location { font-size: 14px; color: #444; line-height: 1.8; margin-top: 4px; }
+    .cover-location strong { color: #1a1a1a; display: block; }
+    .cover-locations { display: flex; gap: 40px; justify-content: center; flex-wrap: wrap; margin-top: 4px; }
+    .cover-responsable { margin-top: 16px; border-top: 1px solid #d4c9b8; padding-top: 20px; width: 100%; text-align: left; font-size: 14px; color: #444; line-height: 2; }
     .cover-responsable strong { color: #1a1a1a; }
 
     /* ── Páginas de productos ── */
     .prod-page {
       page-break-after: always;
       display: flex; flex-direction: column;
-      min-height: 100vh;
+      height: 100vh;
     }
     .prod-row {
       flex: 1;
       display: flex;
       align-items: stretch;
-      min-height: 50vh;
+      overflow: hidden;
     }
-    .prod-divider { height: 1px; background: #e8e2d9; margin: 0 32px; }
+    .prod-divider { height: 1px; background: #e8e2d9; margin: 0 32px; flex-shrink: 0; }
     .prod-img-wrap {
-      flex: 1.1;
+      width: 45%;
+      flex-shrink: 0;
       overflow: hidden;
       background: #f5f3f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .prod-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .prod-img-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .prod-img-empty { width: 100%; height: 100%; background: #ede9e4; }
     .prod-text {
       flex: 1;
-      padding: 36px 40px;
+      padding: 40px 44px;
       display: flex;
       flex-direction: column;
       justify-content: center;
-      gap: 14px;
+      gap: 16px;
       border-left: 1px solid #e8e2d9;
     }
     .prod-row:nth-child(odd) .prod-text { border-left: none; border-right: 1px solid #e8e2d9; }
-    .prod-title { font-size: 20px; font-weight: 400; color: #1a1a1a; line-height: 1.3; }
-    .prod-price { font-size: 16px; color: #9a7f5a; font-weight: 500; }
-    .prod-desc { font-size: 12px; color: #666; line-height: 1.7; }
+    .prod-title { font-size: 22px; font-weight: 400; color: #1a1a1a; line-height: 1.3; }
+    .prod-price { font-size: 18px; color: #9a7f5a; font-weight: 500; }
+    .prod-desc { font-size: 13px; color: #666; line-height: 1.7; }
     .meta-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
-    .meta-label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #9a7f5a; padding: 4px 0; width: 40%; vertical-align: top; }
-    .meta-value { font-size: 12px; color: #444; padding: 4px 0; }
+    .meta-label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #9a7f5a; padding: 5px 0; width: 40%; vertical-align: top; }
+    .meta-value { font-size: 13px; color: #444; padding: 5px 0; }
 
     /* ── Contraportada ── */
     .backcover {
@@ -151,19 +171,19 @@ function catalogHTML(products, options = {}) {
       position: relative; display: flex; flex-direction: column;
       align-items: center; justify-content: center; padding: 60px 48px; text-align: center;
     }
-    .backcover-bg { position: absolute; inset: 0; background: url('${TEXTURA}') center center / cover no-repeat; opacity: 0.35; z-index: 0; }
+    .backcover-bg { position: absolute; inset: 0; background: url('${TEXTURA}') center center / cover no-repeat; z-index: 0; }
     .backcover-content {
       position: relative; z-index: 1; display: flex; flex-direction: column;
-      align-items: center; gap: 32px; width: 100%; max-width: 560px;
-      background: rgba(255,255,255,0.82); padding: 48px 56px; border-radius: 4px;
+      align-items: center; gap: 32px; width: 100%; max-width: 580px;
+      background: rgba(255,255,255,0.88); padding: 52px 60px; border-radius: 4px;
     }
-    .backcover img { max-width: 180px; }
-    .backcover h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: #9a7f5a; }
-    .backcover-store { font-size: 13px; color: #333; line-height: 2; }
+    .backcover img { max-width: 200px; }
+    .backcover h2 { font-size: 14px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: #9a7f5a; }
+    .backcover-store { font-size: 14px; color: #333; line-height: 2.2; }
     .backcover-divider { width: 40px; height: 1px; background: #9a7f5a; }
     .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 40px; text-align: left; width: 100%; }
-    .contact-block { font-size: 12px; color: #444; line-height: 1.9; }
-    .contact-block strong { font-size: 13px; color: #1a1a1a; display: block; margin-bottom: 2px; }
+    .contact-block { font-size: 13px; color: #444; line-height: 1.9; }
+    .contact-block strong { font-size: 14px; color: #1a1a1a; display: block; margin-bottom: 2px; }
   </style>
 </head>
 <body>
@@ -178,8 +198,10 @@ function catalogHTML(products, options = {}) {
       <div class="cover-store">
         Bucarest Art &amp; Antiques<br>
         RUT: 76.121.552-3<br>
-        ventas@bucarestart.cl — www.bucarestart.cl<br>
-        Av. El Bosque Norte 0177, Las Condes, Santiago
+        ventas@bucarestart.cl — www.bucarestart.cl
+      </div>
+      <div class="cover-locations">
+        ${storeAddressBlock()}
       </div>
       ${responsable || cargo || correo || telefono ? `
       <div class="cover-responsable">
@@ -202,7 +224,6 @@ function catalogHTML(products, options = {}) {
       <h2>Contacto</h2>
       <div class="backcover-store">
         Bucarest Art &amp; Antiques — RUT: 76.121.552-3<br>
-        Av. El Bosque Norte 0177, Las Condes, Santiago<br>
         ventas@bucarestart.cl — www.bucarestart.cl<br>
         +56 9 3342 3442
       </div>

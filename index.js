@@ -42,7 +42,7 @@ app.get('/shopify/auth', (req, res) => {
 
   const params = new URLSearchParams({
     client_id: process.env.SHOPIFY_API_KEY,
-    scope: 'read_products,read_orders',
+    scope: 'read_products,read_orders,read_metaobjects,read_locations',
     redirect_uri: `${process.env.APP_URL}/shopify/callback`,
     state,
   });
@@ -236,19 +236,27 @@ app.post('/generate/certificate', async (req, res) => {
 // ── Generar catálogo ──────────────────────────────────────────────────────────
 app.post('/generate/catalog', async (req, res) => {
   try {
-    const { product_ids, title, show_prices, send_email, responsable, cargo, correo, telefono, bg_image } = req.body;
+    const { product_ids, title, show_prices, send_email, responsable, cargo, correo, telefono, bg_image, price_overrides } = req.body;
     const ids = Array.isArray(product_ids) ? product_ids : [product_ids];
 
-    const products = await Promise.all(ids.map(async id => {
-      const p = await shopify.getProductById(id);
-      p._metafields = await shopify.getProductMetafields(id);
-      return p;
-    }));
+    const [products, locations] = await Promise.all([
+      Promise.all(ids.map(async id => {
+        const p = await shopify.getProductById(id);
+        p._metafields = await shopify.getProductMetafields(id);
+        if (price_overrides && price_overrides[id] && p.variants && p.variants[0]) {
+          p.variants[0].price = String(price_overrides[id]);
+        }
+        return p;
+      })),
+      shopify.getLocations(),
+    ]);
+
     const html = catalogHTML(products, {
       title: title || 'Catálogo',
       showPrices: show_prices !== 'false',
       responsable, cargo, correo, telefono,
       bgImage: bg_image,
+      locations,
     });
     const pdf = await generatePDF(html);
 
@@ -381,6 +389,10 @@ function adminUI(host) {
     .product-table thead th.col-check{width:36px}
     .product-table thead th.col-sku{width:130px}
     .product-table thead th.col-status{width:90px}
+    .product-table thead th.col-price{width:160px}
+    .price-override{width:90px;padding:4px 7px;border:1px solid #ddd6cc;font-size:12px;font-family:inherit;background:#fdfcfb;color:#1a1a1a}
+    .price-override:focus{outline:none;border-color:#9a7f5a}
+    .price-display{font-size:12px;color:#666;display:block;margin-bottom:3px}
     .product-table tbody tr{border-bottom:1px solid #f0ece6;cursor:pointer;transition:background 0.1s}
     .product-table tbody tr:hover{background:#faf8f5}
     .product-table tbody td{padding:10px 12px;font-size:13px;color:#333;vertical-align:middle}
@@ -767,20 +779,28 @@ function renderProducts(prefix, products, filter) {
     if (btn) btn.style.display = 'none';
     return;
   }
+  const isCatalog = prefix === 'catalog';
   list.innerHTML = \`<table class="product-table">
     <thead><tr>
       <th class="col-check"></th>
       <th>Título</th>
       <th class="col-sku">SKU</th>
+      \${isCatalog ? '<th class="col-price">Precio</th>' : ''}
       <th class="col-status">Estado</th>
     </tr></thead>
     <tbody>
       \${filtered.map(p => {
         const sku = p.variants && p.variants[0] && p.variants[0].sku ? p.variants[0].sku : '—';
+        const rawPrice = p.variants && p.variants[0] ? p.variants[0].price : '';
+        const displayPrice = rawPrice ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(parseFloat(rawPrice)) : '—';
         return \`<tr onclick="toggleRow(this)">
           <td class="col-check"><input type="checkbox" name="\${prefix}_product" value="\${p.id}" onchange="updateCount('\${prefix}');event.stopPropagation()"></td>
           <td>\${p.title}</td>
           <td class="col-sku">\${sku}</td>
+          \${isCatalog ? \`<td class="col-price" onclick="event.stopPropagation()">
+            <span class="price-display">\${displayPrice}</span>
+            <input type="number" class="price-override" data-id="\${p.id}" value="\${rawPrice}" placeholder="Precio">
+          </td>\` : ''}
           <td>\${statusBadge(p.status)}</td>
         </tr>\`;
       }).join('')}
@@ -860,6 +880,11 @@ async function generate(type, sendEmail = false) {
       body.telefono = document.getElementById('catalog-telefono').value;
       body.bg_image = document.getElementById('catalog-bg-url').value;
       body.send_email = sendEmail;
+      const overrides = {};
+      document.querySelectorAll('.price-override').forEach(input => {
+        if (input.value) overrides[input.dataset.id] = input.value;
+      });
+      body.price_overrides = overrides;
     }
     if (type === 'quote') {
       body.client_name = document.getElementById('quote-name').value;
