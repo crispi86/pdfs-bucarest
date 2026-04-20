@@ -13,8 +13,19 @@ const shopify = require('./shopify');
 
 const app = express();
 
-// ── OAuth state store ─────────────────────────────────────────────────────────
-const pendingStates = new Map(); // state -> host
+// ── Auth store ────────────────────────────────────────────────────────────────
+const pendingStates = new Map();  // state -> host
+const authorizedShops = new Set(); // shops que completaron OAuth
+
+function requireAuth(req, res, next) {
+  const shop = req.query.shop || process.env.SHOPIFY_SHOP;
+  if (authorizedShops.has(shop)) return next();
+  const host = req.query.host || '';
+  const authUrl = `/shopify/auth?shop=${encodeURIComponent(shop)}&host=${encodeURIComponent(host)}`;
+  res.send(`<!DOCTYPE html><html><head>
+    <script>window.top.location.href = ${JSON.stringify(authUrl)};</script>
+  </head><body></body></html>`);
+}
 
 app.use('/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
@@ -48,6 +59,7 @@ app.get('/shopify/callback', async (req, res) => {
   const { shop, code, state, hmac } = req.query;
 
   if (!pendingStates.has(state)) return res.status(403).send('Estado inválido');
+  const savedHost = pendingStates.get(state);
   pendingStates.delete(state);
 
   const { hmac: _h, ...rest } = req.query;
@@ -66,7 +78,9 @@ app.get('/shopify/callback', async (req, res) => {
   });
   const { access_token } = await r.json();
 
-  res.redirect(`https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}`);
+  authorizedShops.add(shop);
+  const host = savedHost || Buffer.from(`${shop}/admin`).toString('base64');
+  res.redirect(`/admin?shop=${encodeURIComponent(shop)}&host=${encodeURIComponent(host)}`);
 });
 
 // ── Webhook: orden pagada ─────────────────────────────────────────────────────
@@ -117,7 +131,7 @@ app.post('/webhook/orders/paid', async (req, res) => {
 });
 
 // ── Interfaz web ──────────────────────────────────────────────────────────────
-app.get('/admin', (req, res) => {
+app.get('/admin', requireAuth, (req, res) => {
   res.setHeader('Content-Security-Policy',
     `frame-ancestors https://${process.env.SHOPIFY_SHOP} https://admin.shopify.com`);
   res.send(adminUI(req.query.host || ''));
@@ -289,7 +303,6 @@ function adminUI(host) {
         window.__shopifyApp = window['app-bridge'].default({
           apiKey: '${process.env.SHOPIFY_API_KEY}',
           host: host,
-          forceRedirect: true,
         });
       }
     })();
