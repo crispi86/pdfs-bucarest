@@ -53,8 +53,19 @@ async function getAllPages(path, key) {
 }
 
 async function getOrder(orderId) {
-  const { body } = await shopifyRequest('GET', `orders/${orderId}.json`);
-  return body.order;
+  // Limpiar # si el usuario lo ingresó
+  const clean = String(orderId).replace('#', '').trim();
+
+  // Intentar por ID directo
+  const { body } = await shopifyRequest('GET', `orders/${clean}.json`);
+  if (body.order) return body.order;
+
+  // Si no encontró, buscar por número de orden
+  const { body: body2 } = await shopifyRequest('GET', `orders.json?name=%23${clean}&status=any`);
+  const found = (body2.orders || [])[0];
+  if (found) return found;
+
+  throw new Error(`No se encontró la orden "${orderId}"`);
 }
 
 async function getProductsByCollection(collectionId) {
