@@ -69,15 +69,15 @@ async function getOrder(orderId) {
 }
 
 async function getProductsByCollection(collectionId) {
-  return getAllPages(`products.json?collection_id=${collectionId}&fields=id,title,images,variants,body_html`, 'products');
+  return getAllPages(`products.json?collection_id=${collectionId}&fields=id,title,images,variants,body_html,status`, 'products');
 }
 
 async function getProductsByTag(tag) {
-  return getAllPages(`products.json?tag=${encodeURIComponent(tag)}&fields=id,title,images,body_html,variants`, 'products');
+  return getAllPages(`products.json?tag=${encodeURIComponent(tag)}&fields=id,title,images,body_html,variants,status`, 'products');
 }
 
 async function getProductsByTitle(keyword) {
-  const all = await getAllPages(`products.json?fields=id,title,images,body_html,variants`, 'products');
+  const all = await getAllPages(`products.json?fields=id,title,images,body_html,variants,status`, 'products');
   const lower = keyword.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   return all.filter(p => {
     const t = (p.title || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -86,7 +86,7 @@ async function getProductsByTitle(keyword) {
 }
 
 async function getProductsByMetafield(namespace, key, value) {
-  const all = await getAllPages(`products.json?fields=id,title,images,body_html,variants`, 'products');
+  const all = await getAllPages(`products.json?fields=id,title,images,body_html,variants,status`, 'products');
   const results = [];
   for (const product of all) {
     const { body } = await shopifyRequest('GET', `products/${product.id}/metafields.json`);

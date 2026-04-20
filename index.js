@@ -357,6 +357,13 @@ function adminUI(host) {
     .product-item img{width:40px;height:40px;object-fit:cover;border:1px solid #e8e2d9;flex-shrink:0}
     .product-item span{font-size:13px;color:#333;flex:1}
     .product-item input[type=checkbox]{width:16px;height:16px;accent-color:#9a7f5a;flex-shrink:0}
+    .status-badge{font-size:10px;letter-spacing:0.08em;text-transform:uppercase;padding:2px 7px;border-radius:10px;flex-shrink:0}
+    .status-active{background:#e6f4ea;color:#2d6a2d}
+    .status-draft{background:#f0f0f0;color:#888}
+    .status-archived{background:#fff3e0;color:#b45300}
+    .status-filter{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+    .status-btn{padding:4px 12px;border:1px solid #ddd6cc;background:#fff;font-size:11px;cursor:pointer;font-family:inherit;letter-spacing:0.06em;text-transform:uppercase;border-radius:12px;color:#666;transition:all 0.15s}
+    .status-btn.active{border-color:#9a7f5a;background:#faf8f5;color:#9a7f5a}
     .selected-count{font-size:12px;color:#9a7f5a;margin:10px 0}
     .select-all-btn{background:none;border:none;font-size:12px;color:#9a7f5a;cursor:pointer;font-family:inherit;padding:10px 0;text-decoration:underline}
     .checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;color:#555;margin-bottom:8px}
@@ -408,7 +415,12 @@ function adminUI(host) {
         <label>Palabra en título <input id="cert-title" placeholder="Ej: óleo" oninput="debounce(() => loadProducts('cert'), 600)"></label>
       </div>
       <div class="loading" id="cert-loading">Cargando productos…</div>
-      <div class="product-list" id="cert-products" style="margin-top:12px"></div>
+      <div class="status-filter" id="cert-status-filter" style="display:none;margin-top:12px">
+        <button class="status-btn active" onclick="filterByStatus('cert','all',this)">Todos</button>
+        <button class="status-btn" onclick="filterByStatus('cert','active',this)">Activos</button>
+        <button class="status-btn" onclick="filterByStatus('cert','draft',this)">Borrador</button>
+      </div>
+      <div class="product-list" id="cert-products"></div>
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div class="selected-count" id="cert-count"></div>
         <button class="select-all-btn" id="cert-select-all" onclick="toggleSelectAll('cert')" style="display:none">Seleccionar todos</button>
@@ -478,7 +490,12 @@ function adminUI(host) {
         </div>
       </div>
       <div class="loading" id="catalog-loading">Cargando productos…</div>
-      <div class="product-list" id="catalog-products" style="margin-top:12px"></div>
+      <div class="status-filter" id="catalog-status-filter" style="display:none;margin-top:12px">
+        <button class="status-btn active" onclick="filterByStatus('catalog','all',this)">Todos</button>
+        <button class="status-btn" onclick="filterByStatus('catalog','active',this)">Activos</button>
+        <button class="status-btn" onclick="filterByStatus('catalog','draft',this)">Borrador</button>
+      </div>
+      <div class="product-list" id="catalog-products"></div>
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div class="selected-count" id="catalog-count"></div>
         <button class="select-all-btn" id="catalog-select-all" onclick="toggleSelectAll('catalog')" style="display:none">Seleccionar todos</button>
@@ -530,7 +547,12 @@ function adminUI(host) {
         <label>Palabra en título <input id="quote-title" placeholder="Ej: velador" oninput="debounce(() => loadProducts('quote'), 600)"></label>
       </div>
       <div class="loading" id="quote-loading">Cargando productos…</div>
-      <div class="product-list" id="quote-products" style="margin-top:12px"></div>
+      <div class="status-filter" id="quote-status-filter" style="display:none;margin-top:12px">
+        <button class="status-btn active" onclick="filterByStatus('quote','all',this)">Todos</button>
+        <button class="status-btn" onclick="filterByStatus('quote','active',this)">Activos</button>
+        <button class="status-btn" onclick="filterByStatus('quote','draft',this)">Borrador</button>
+      </div>
+      <div class="product-list" id="quote-products"></div>
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div class="selected-count" id="quote-count"></div>
         <button class="select-all-btn" id="quote-select-all" onclick="toggleSelectAll('quote')" style="display:none">Seleccionar todos</button>
@@ -639,25 +661,48 @@ async function loadProducts(prefix) {
   }
 }
 
-function renderProducts(prefix, products) {
+const productCache = {};
+
+function statusBadge(status) {
+  const map = { active: ['Activo','status-active'], draft: ['Borrador','status-draft'], archived: ['Archivado','status-archived'] };
+  const [label, cls] = map[status] || ['—','status-draft'];
+  return \`<span class="status-badge \${cls}">\${label}</span>\`;
+}
+
+function renderProducts(prefix, products, filter) {
+  productCache[prefix] = products;
+  const statusFilter = document.getElementById(prefix + '-status-filter');
+  if (statusFilter) statusFilter.style.display = products.length ? 'flex' : 'none';
+
+  const filtered = filter && filter !== 'all' ? products.filter(p => p.status === filter) : products;
   const list = document.getElementById(prefix + '-products');
   const count = document.getElementById(prefix + '-count');
-  if (!products.length) {
+
+  if (!filtered.length) {
     list.innerHTML = '<p style="padding:12px;color:#999;font-size:13px">No se encontraron productos.</p>';
     count.textContent = '';
+    const btn = document.getElementById(prefix + '-select-all');
+    if (btn) btn.style.display = 'none';
     return;
   }
-  list.innerHTML = products.map(p => {
+  list.innerHTML = filtered.map(p => {
     const img = p.images && p.images[0] ? p.images[0].src : '';
     return \`<label class="product-item">
       <input type="checkbox" name="\${prefix}_product" value="\${p.id}" onchange="updateCount('\${prefix}')">
       \${img ? \`<img src="\${img}" alt="">\` : '<div style="width:40px;height:40px;background:#f0ece8;flex-shrink:0"></div>'}
       <span>\${p.title}</span>
+      \${statusBadge(p.status)}
     </label>\`;
   }).join('');
-  count.textContent = products.length + ' productos encontrados';
+  count.textContent = filtered.length + ' producto(s) encontrado(s)';
   const btn = document.getElementById(prefix + '-select-all');
   if (btn) { btn.style.display = 'block'; btn.textContent = 'Seleccionar todos'; }
+}
+
+function filterByStatus(prefix, status, el) {
+  document.querySelectorAll('#' + prefix + '-status-filter .status-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderProducts(prefix, productCache[prefix] || [], status);
 }
 
 function toggleSelectAll(prefix) {
