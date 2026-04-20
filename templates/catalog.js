@@ -6,10 +6,11 @@ function catalogHTML(products, options = {}) {
     cargo = '',
     correo = '',
     telefono = '',
+    bgImage = '',
   } = options;
 
   const LOGO = 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/logo_web.png?v=1765624776';
-  const TEXTURA = 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura21.jpg?v=1772584942';
+  const TEXTURA = bgImage || 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura21.jpg?v=1772584942';
 
   function formatPrice(amount, currency = 'CLP') {
     return new Intl.NumberFormat('es-CL', { style: 'currency', currency }).format(amount);
@@ -69,6 +70,9 @@ function catalogHTML(products, options = {}) {
       align-items: center;
       gap: 28px;
       width: 100%;
+      background: rgba(255,255,255,0.78);
+      padding: 48px 56px;
+      border-radius: 4px;
     }
     .cover img { max-width: 220px; }
     .cover h1 {
@@ -142,6 +146,9 @@ function catalogHTML(products, options = {}) {
       gap: 32px;
       width: 100%;
       max-width: 560px;
+      background: rgba(255,255,255,0.82);
+      padding: 48px 56px;
+      border-radius: 4px;
     }
     .backcover img { max-width: 180px; }
     .backcover h2 {

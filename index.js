@@ -162,6 +162,15 @@ app.get('/api/collections', async (req, res) => {
   }
 });
 
+app.get('/api/files', async (req, res) => {
+  try {
+    const files = await shopify.getFiles();
+    res.json(files);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/products', async (req, res) => {
   try {
     const { collection_id, tag, title, metafield_namespace, metafield_key, metafield_value } = req.query;
@@ -217,7 +226,7 @@ app.post('/generate/certificate', async (req, res) => {
 // ── Generar catálogo ──────────────────────────────────────────────────────────
 app.post('/generate/catalog', async (req, res) => {
   try {
-    const { product_ids, title, show_prices, send_email, responsable, cargo, correo, telefono } = req.body;
+    const { product_ids, title, show_prices, send_email, responsable, cargo, correo, telefono, bg_image } = req.body;
     const ids = Array.isArray(product_ids) ? product_ids : [product_ids];
 
     const products = await Promise.all(ids.map(id => shopify.getProductById(id)));
@@ -225,6 +234,7 @@ app.post('/generate/catalog', async (req, res) => {
       title: title || 'Catálogo',
       showPrices: show_prices !== 'false',
       responsable, cargo, correo, telefono,
+      bgImage: bg_image,
     });
     const pdf = await generatePDF(html);
 
@@ -377,6 +387,18 @@ function adminUI(host) {
     .msg.ok{background:#f0faf0;border:1px solid #b8e0b8;color:#2d6a2d}
     .msg.err{background:#fff5f5;border:1px solid #f5c0c0;color:#c0392b}
     .loading{display:none;font-size:13px;color:#999;margin-top:12px}
+    .file-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center}
+    .file-modal-overlay.open{display:flex}
+    .file-modal{background:#fff;width:680px;max-height:80vh;display:flex;flex-direction:column;border-radius:4px;overflow:hidden}
+    .file-modal-header{padding:20px 24px;border-bottom:1px solid #e8e2d9;display:flex;justify-content:space-between;align-items:center}
+    .file-modal-header h3{font-size:15px;font-weight:500;color:#1a1a1a}
+    .file-modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:#999;line-height:1}
+    .file-modal-body{overflow-y:auto;padding:20px;flex:1}
+    .file-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+    .file-thumb{aspect-ratio:1;overflow:hidden;border:2px solid transparent;border-radius:4px;cursor:pointer;transition:border-color 0.15s}
+    .file-thumb:hover{border-color:#9a7f5a}
+    .file-thumb img{width:100%;height:100%;object-fit:cover}
+    .file-modal-loading{text-align:center;padding:40px;color:#999;font-size:13px}
   </style>
 </head>
 <body>
@@ -451,6 +473,18 @@ function adminUI(host) {
       <span class="section-label">Título del catálogo</span>
       <input id="catalog-title" placeholder="Ej: Catálogo Pintura Siglo XIX" style="width:100%;margin-bottom:16px">
       <div class="checkbox-row"><input type="checkbox" id="catalog-prices" checked><label for="catalog-prices" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar precios</label></div>
+    </div>
+
+    <div class="card">
+      <span class="section-label">Imagen de fondo (portada y contraportada)</span>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
+        <input id="catalog-bg-url" placeholder="URL de la imagen (o elige desde la biblioteca)" style="flex:1">
+        <button class="btn btn-secondary" onclick="openFilePicker()" style="white-space:nowrap;padding:10px 16px">Biblioteca Shopify</button>
+      </div>
+      <div id="catalog-bg-preview" style="display:none;margin-top:8px">
+        <img id="catalog-bg-img" style="max-height:80px;border:1px solid #e8e2d9;border-radius:4px" alt="Vista previa">
+        <button onclick="clearBgImage()" style="background:none;border:none;color:#999;cursor:pointer;font-size:12px;margin-left:8px">✕ Quitar</button>
+      </div>
     </div>
 
     <div class="card">
@@ -583,6 +617,19 @@ function adminUI(host) {
     <div class="msg" id="receipt-msg"></div>
   </div>
 
+</div>
+
+<!-- MODAL SELECTOR DE IMÁGENES -->
+<div class="file-modal-overlay" id="file-modal-overlay" onclick="closeFilePicker(event)">
+  <div class="file-modal">
+    <div class="file-modal-header">
+      <h3>Biblioteca de imágenes — Shopify</h3>
+      <button class="file-modal-close" onclick="closeFilePicker()">×</button>
+    </div>
+    <div class="file-modal-body">
+      <div id="file-grid-container" class="file-modal-loading">Cargando imágenes…</div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -759,6 +806,7 @@ async function generate(type, sendEmail = false) {
       body.cargo = document.getElementById('catalog-cargo').value;
       body.correo = document.getElementById('catalog-correo').value;
       body.telefono = document.getElementById('catalog-telefono').value;
+      body.bg_image = document.getElementById('catalog-bg-url').value;
       body.send_email = sendEmail;
     }
     if (type === 'quote') {
@@ -795,6 +843,54 @@ async function generate(type, sendEmail = false) {
 }
 
 init();
+
+// ── File picker ───────────────────────────────────────────────────────────────
+document.getElementById('catalog-bg-url').addEventListener('input', function() {
+  updateBgPreview(this.value.trim());
+});
+
+function updateBgPreview(url) {
+  const preview = document.getElementById('catalog-bg-preview');
+  const img = document.getElementById('catalog-bg-img');
+  if (url) { img.src = url; preview.style.display = 'block'; }
+  else { preview.style.display = 'none'; }
+}
+
+function clearBgImage() {
+  document.getElementById('catalog-bg-url').value = '';
+  document.getElementById('catalog-bg-preview').style.display = 'none';
+}
+
+async function openFilePicker() {
+  document.getElementById('file-modal-overlay').classList.add('open');
+  const container = document.getElementById('file-grid-container');
+  container.className = 'file-modal-loading';
+  container.innerHTML = 'Cargando imágenes…';
+  try {
+    const res = await fetch('/api/files');
+    const files = await res.json();
+    if (!files.length) { container.innerHTML = 'No se encontraron imágenes.'; return; }
+    container.className = 'file-grid';
+    container.innerHTML = files.map(f =>
+      \`<div class="file-thumb" onclick="selectBgImage('\${f.url}')">
+        <img src="\${f.url}" alt="\${f.altText || ''}">
+      </div>\`
+    ).join('');
+  } catch(e) {
+    container.innerHTML = 'Error cargando imágenes.';
+  }
+}
+
+function selectBgImage(url) {
+  document.getElementById('catalog-bg-url').value = url;
+  updateBgPreview(url);
+  closeFilePicker();
+}
+
+function closeFilePicker(e) {
+  if (e && e.target !== document.getElementById('file-modal-overlay')) return;
+  document.getElementById('file-modal-overlay').classList.remove('open');
+}
 </script>
 </body>
 </html>`;

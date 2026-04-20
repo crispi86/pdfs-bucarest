@@ -105,6 +105,50 @@ async function getProductById(productId) {
   return body.product;
 }
 
+async function getFiles() {
+  const token = process.env.SHOPIFY_ACCESS_TOKEN;
+  const query = `{
+    files(first: 100, query: "media_type:IMAGE") {
+      edges {
+        node {
+          ... on MediaImage {
+            image { url altText }
+          }
+        }
+      }
+    }
+  }`;
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({ query });
+    const options = {
+      hostname: process.env.SHOPIFY_SHOP,
+      path: '/admin/api/2024-01/graphql.json',
+      method: 'POST',
+      headers: {
+        'X-Shopify-Access-Token': token,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    };
+    const req = require('https').request(options, res => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          const files = (json.data?.files?.edges || [])
+            .map(e => e.node?.image)
+            .filter(Boolean);
+          resolve(files);
+        } catch(e) { reject(e); }
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
 async function getCollections() {
   const custom = await getAllPages('custom_collections.json?fields=id,title', 'custom_collections');
   const smart = await getAllPages('smart_collections.json?fields=id,title', 'smart_collections');
@@ -121,6 +165,7 @@ async function isProductInCollection(productId, collectionId) {
 module.exports = {
   shopifyRequest,
   getOrder,
+  getFiles,
   getProductsByCollection,
   getProductsByTag,
   getProductsByTitle,
