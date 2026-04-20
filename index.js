@@ -13,12 +13,80 @@ const shopify = require('./shopify');
 
 const app = express();
 
+// ── Sesiones en memoria ───────────────────────────────────────────────────────
+const pendingStates = new Map(); // state -> host
+const sessions = new Map();      // token -> { shop, expires }
+
+function getSession(req) {
+  const raw = req.headers.cookie || '';
+  const m = raw.match(/b_session=([a-f0-9]+)/);
+  if (!m) return null;
+  const s = sessions.get(m[1]);
+  return s && s.expires > Date.now() ? s : null;
+}
+
+function setSessionCookie(res, token) {
+  res.setHeader('Set-Cookie', `b_session=${token}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=86400`);
+}
+
+function requireAuth(req, res, next) {
+  if (getSession(req)) return next();
+  const shop = req.query.shop || process.env.SHOPIFY_SHOP;
+  const host = req.query.host || '';
+  res.redirect(`/shopify/auth?shop=${encodeURIComponent(shop)}&host=${encodeURIComponent(host)}`);
+}
+
 app.use('/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/', (req, res) => res.send('Bucarest PDF Generator — OK'));
+
+// ── OAuth: inicio ─────────────────────────────────────────────────────────────
+app.get('/shopify/auth', (req, res) => {
+  const shop = req.query.shop || process.env.SHOPIFY_SHOP;
+  const state = crypto.randomBytes(16).toString('hex');
+  pendingStates.set(state, req.query.host || '');
+
+  const params = new URLSearchParams({
+    client_id: process.env.SHOPIFY_API_KEY,
+    scope: 'read_products,read_orders',
+    redirect_uri: `${process.env.APP_URL}/shopify/callback`,
+    state,
+  });
+  res.redirect(`https://${shop}/admin/oauth/authorize?${params}`);
+});
+
+// ── OAuth: callback ───────────────────────────────────────────────────────────
+app.get('/shopify/callback', async (req, res) => {
+  const { shop, code, state, hmac } = req.query;
+
+  if (!pendingStates.has(state)) return res.status(403).send('Estado inválido');
+  pendingStates.delete(state);
+
+  const { hmac: _h, ...rest } = req.query;
+  const message = Object.keys(rest).sort().map(k => `${k}=${rest[k]}`).join('&');
+  const digest = crypto.createHmac('sha256', process.env.SHOPIFY_API_SECRET).update(message).digest('hex');
+  if (digest !== hmac) return res.status(403).send('HMAC inválido');
+
+  const r = await fetch(`https://${shop}/admin/oauth/access_token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_id: process.env.SHOPIFY_API_KEY,
+      client_secret: process.env.SHOPIFY_API_SECRET,
+      code,
+    }),
+  });
+  const { access_token } = await r.json();
+
+  const token = crypto.randomBytes(32).toString('hex');
+  sessions.set(token, { shop, accessToken: access_token, expires: Date.now() + 86400_000 });
+
+  setSessionCookie(res, token);
+  res.redirect(`https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}`);
+});
 
 // ── Webhook: orden pagada ─────────────────────────────────────────────────────
 app.post('/webhook/orders/paid', async (req, res) => {
@@ -68,8 +136,10 @@ app.post('/webhook/orders/paid', async (req, res) => {
 });
 
 // ── Interfaz web ──────────────────────────────────────────────────────────────
-app.get('/admin', (req, res) => {
-  res.send(adminUI());
+app.get('/admin', requireAuth, (req, res) => {
+  res.setHeader('Content-Security-Policy',
+    `frame-ancestors https://${process.env.SHOPIFY_SHOP} https://admin.shopify.com`);
+  res.send(adminUI(req.query.host || ''));
 });
 
 // ── API: colecciones y tags ───────────────────────────────────────────────────
@@ -222,7 +292,7 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => console.log(`Bucarest PDF Generator corriendo en puerto ${PORT}`));
 
 // ── Interfaz de administración ────────────────────────────────────────────────
-function adminUI() {
+function adminUI(host) {
   return `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -230,6 +300,19 @@ function adminUI() {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Bucarest — Generador de Documentos</title>
   <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/@shopify/app-bridge@3"></script>
+  <script>
+    (function() {
+      var host = new URLSearchParams(location.search).get('host') || '${host}';
+      if (host && window['app-bridge']) {
+        window.__shopifyApp = window['app-bridge'].default({
+          apiKey: '${process.env.SHOPIFY_API_KEY}',
+          host: host,
+          forceRedirect: true,
+        });
+      }
+    })();
+  </script>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:"Hanken Grotesk",sans-serif;background:#faf9f7;color:#333;font-size:14px}
