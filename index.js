@@ -213,8 +213,6 @@ app.get('/api/products', async (req, res) => {
       if (tag) return shopify.getProductsByTag(tag);
       if (title) return shopify.getProductsByTitle(title);
       if (sku) return shopify.getProductsBySku(sku);
-      if (metafield_namespace && metafield_key && metafield_value)
-        return shopify.getProductsByMetafield(metafield_namespace, metafield_key, metafield_value);
       return [];
     });
     res.json(products);
@@ -507,7 +505,6 @@ function adminUI(host) {
         <button class="filter-btn" onclick="setFilter('cert','tag')">Por tag</button>
         <button class="filter-btn" onclick="setFilter('cert','title')">Por título</button>
         <button class="filter-btn" onclick="setFilter('cert','sku')">Por SKU</button>
-        <button class="filter-btn" onclick="setFilter('cert','metafield')">Por metacampo</button>
       </div>
       <div id="cert-filter-collection" class="filter-panel active">
         <label>Colección
@@ -522,13 +519,6 @@ function adminUI(host) {
       </div>
       <div id="cert-filter-sku" class="filter-panel">
         <label>SKU <input id="cert-sku" placeholder="Ej: ART-001" oninput="debounce(() => loadProducts('cert'), 600)"></label>
-      </div>
-      <div id="cert-filter-metafield" class="filter-panel">
-        <div class="row row-3">
-          <label>Namespace <input id="cert-meta-ns" placeholder="custom"></label>
-          <label>Key <input id="cert-meta-key" placeholder="material"></label>
-          <label>Valor <input id="cert-meta-val" placeholder="bronce" oninput="debounce(() => loadProducts('cert'), 800)"></label>
-        </div>
       </div>
       <div class="loading" id="cert-loading">Cargando productos…</div>
       <div class="status-filter" id="cert-status-filter" style="display:none;margin-top:12px">
@@ -600,7 +590,6 @@ function adminUI(host) {
         <button class="filter-btn" onclick="setFilter('catalog','tag')">Por tag</button>
         <button class="filter-btn" onclick="setFilter('catalog','title')">Por título</button>
         <button class="filter-btn" onclick="setFilter('catalog','sku')">Por SKU</button>
-        <button class="filter-btn" onclick="setFilter('catalog','metafield')">Por metacampo</button>
       </div>
       <div id="catalog-filter-collection" class="filter-panel active">
         <label>Colección <select id="catalog-collection" onchange="loadProducts('catalog')"><option value="">Seleccione…</option></select></label>
@@ -613,13 +602,6 @@ function adminUI(host) {
       </div>
       <div id="catalog-filter-sku" class="filter-panel">
         <label>SKU <input id="catalog-sku" placeholder="Ej: ART-001" oninput="debounce(() => loadProducts('catalog'), 600)"></label>
-      </div>
-      <div id="catalog-filter-metafield" class="filter-panel">
-        <div class="row row-3">
-          <label>Namespace <input id="catalog-meta-ns" placeholder="custom"></label>
-          <label>Key <input id="catalog-meta-key" placeholder="material"></label>
-          <label>Valor <input id="catalog-meta-val" placeholder="bronce" oninput="debounce(() => loadProducts('catalog'), 800)"></label>
-        </div>
       </div>
       <div class="loading" id="catalog-loading">Cargando productos…</div>
       <div class="status-filter" id="catalog-status-filter" style="display:none;margin-top:12px">
@@ -673,7 +655,6 @@ function adminUI(host) {
         <button class="filter-btn" onclick="setFilter('quote','tag')">Por tag</button>
         <button class="filter-btn" onclick="setFilter('quote','title')">Por título</button>
         <button class="filter-btn" onclick="setFilter('quote','sku')">Por SKU</button>
-        <button class="filter-btn" onclick="setFilter('quote','metafield')">Por metacampo</button>
       </div>
       <div id="quote-filter-collection" class="filter-panel active">
         <label>Colección <select id="quote-collection" onchange="loadProducts('quote')"><option value="">Seleccione…</option></select></label>
@@ -686,13 +667,6 @@ function adminUI(host) {
       </div>
       <div id="quote-filter-sku" class="filter-panel">
         <label>SKU <input id="quote-sku" placeholder="Ej: ART-001" oninput="debounce(() => loadProducts('quote'), 600)"></label>
-      </div>
-      <div id="quote-filter-metafield" class="filter-panel">
-        <div class="row row-3">
-          <label>Namespace <input id="quote-meta-ns" placeholder="custom"></label>
-          <label>Key <input id="quote-meta-key" placeholder="material"></label>
-          <label>Valor <input id="quote-meta-val" placeholder="bronce" oninput="debounce(() => loadProducts('quote'), 800)"></label>
-        </div>
       </div>
       <div class="loading" id="quote-loading">Cargando productos…</div>
       <div class="status-filter" id="quote-status-filter" style="display:none;margin-top:12px">
@@ -817,12 +791,6 @@ async function loadProducts(prefix) {
     const s = document.getElementById(prefix + '-sku').value.trim();
     if (!s) { loading.style.display = 'none'; return; }
     url += 'sku=' + encodeURIComponent(s);
-  } else if (activeFilter.includes('metacampo')) {
-    const ns = document.getElementById(prefix + '-meta-ns').value.trim();
-    const key = document.getElementById(prefix + '-meta-key').value.trim();
-    const val = document.getElementById(prefix + '-meta-val').value.trim();
-    if (!ns || !key || !val) { loading.style.display = 'none'; return; }
-    url += 'metafield_namespace=' + encodeURIComponent(ns) + '&metafield_key=' + encodeURIComponent(key) + '&metafield_value=' + encodeURIComponent(val);
   }
 
   try {
