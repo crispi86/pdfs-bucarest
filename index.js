@@ -368,7 +368,16 @@ app.post('/generate/receipt', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => console.log(`Bucarest PDF Generator corriendo en puerto ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Bucarest PDF Generator corriendo en puerto ${PORT}`);
+  // Pre-calentar caché de colecciones y ubicaciones en background
+  shopify.getCollections()
+    .then(data => setCached('collections', data, 30 * 60 * 1000))
+    .catch(() => {});
+  shopify.getLocations()
+    .then(data => setCached('locations', data, 60 * 60 * 1000))
+    .catch(() => {});
+});
 
 // ── Interfaz de administración ────────────────────────────────────────────────
 function adminUI(host) {

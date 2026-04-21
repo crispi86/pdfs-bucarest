@@ -1,7 +1,17 @@
 const puppeteer = require('puppeteer');
 
-async function generatePDF(html) {
-  const browser = await puppeteer.launch({
+let _browser = null;
+
+async function getBrowser() {
+  if (_browser) {
+    try {
+      await _browser.version(); // Verifica que sigue vivo
+      return _browser;
+    } catch {
+      _browser = null;
+    }
+  }
+  _browser = await puppeteer.launch({
     headless: true,
     args: [
       '--no-sandbox',
@@ -10,17 +20,21 @@ async function generatePDF(html) {
       '--disable-gpu',
     ],
   });
+  return _browser;
+}
+
+async function generatePDF(html) {
+  const browser = await getBrowser();
+  const page = await browser.newPage();
   try {
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30000 });
-    const pdf = await page.pdf({
+    await page.setContent(html, { waitUntil: 'networkidle2', timeout: 30000 });
+    return await page.pdf({
       format: 'A4',
       printBackground: true,
       margin: { top: '0', right: '0', bottom: '0', left: '0' },
     });
-    return pdf;
   } finally {
-    await browser.close();
+    await page.close();
   }
 }
 
