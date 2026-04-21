@@ -673,8 +673,14 @@ function adminUI(host) {
 <div class="file-modal-overlay" id="file-modal-overlay" onclick="closeFilePicker(event)">
   <div class="file-modal">
     <div class="file-modal-header">
-      <h3>Biblioteca de imágenes — Shopify</h3>
+      <h3>Biblioteca de imágenes</h3>
       <button class="file-modal-close" onclick="closeFilePicker()">×</button>
+    </div>
+    <div style="padding:12px 20px;border-bottom:1px solid #e8e2d9">
+      <input id="file-search" type="text" placeholder="Buscar por nombre de producto…"
+        oninput="filterFiles(this.value)"
+        style="width:100%;padding:9px 14px;border:1px solid #ddd6cc;font-size:13px;font-family:inherit;background:#fdfcfb;outline:none">
+      <p style="font-size:11px;color:#9a7f5a;margin-top:6px">Sugerencia: busca la palabra "textura"</p>
     </div>
     <div class="file-modal-body">
       <div id="file-grid-container" class="file-modal-loading">Cargando imágenes…</div>
@@ -941,21 +947,48 @@ function clearBgImage() {
   document.getElementById('catalog-bg-preview').style.display = 'none';
 }
 
+let fileCache = null;
+
+function renderFileGrid(files) {
+  const container = document.getElementById('file-grid-container');
+  if (!files.length) {
+    container.className = '';
+    container.innerHTML = '<p style="padding:20px;color:#999;font-size:13px">No se encontraron imágenes.</p>';
+    return;
+  }
+  container.className = 'file-grid';
+  container.innerHTML = files.map(f =>
+    \`<div class="file-thumb" onclick="selectBgImage('\${f.url}')" title="\${f.altText || ''}">
+      <img src="\${f.url}" alt="\${f.altText || ''}" loading="lazy">
+    </div>\`
+  ).join('');
+}
+
+function filterFiles(query) {
+  if (!fileCache) return;
+  const q = query.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');
+  const filtered = q
+    ? fileCache.filter(f => (f.altText || '').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').includes(q))
+    : fileCache;
+  renderFileGrid(filtered);
+}
+
 async function openFilePicker() {
   document.getElementById('file-modal-overlay').classList.add('open');
+  document.getElementById('file-search').value = '';
   const container = document.getElementById('file-grid-container');
+
+  if (fileCache) {
+    renderFileGrid(fileCache);
+    return;
+  }
+
   container.className = 'file-modal-loading';
   container.innerHTML = 'Cargando imágenes…';
   try {
     const res = await fetch('/api/files');
-    const files = await res.json();
-    if (!files.length) { container.innerHTML = 'No se encontraron imágenes.'; return; }
-    container.className = 'file-grid';
-    container.innerHTML = files.map(f =>
-      \`<div class="file-thumb" onclick="selectBgImage('\${f.url}')">
-        <img src="\${f.url}" alt="\${f.altText || ''}">
-      </div>\`
-    ).join('');
+    fileCache = await res.json();
+    renderFileGrid(fileCache);
   } catch(e) {
     container.innerHTML = 'Error cargando imágenes.';
   }
