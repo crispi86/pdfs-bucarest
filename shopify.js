@@ -102,7 +102,12 @@ async function getProductsByTag(tag) {
 }
 
 async function getProductsByTitle(keyword) {
-  return getAllPages(`products.json?title=${encodeURIComponent(keyword)}&fields=id,title,images,body_html,variants,status`, 'products');
+  const all = await getAllPages(`products.json?fields=id,title,images,body_html,variants,status`, 'products');
+  const lower = keyword.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return all.filter(p => {
+    const t = (p.title || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return t.includes(lower);
+  });
 }
 
 async function getProductsBySku(sku) {
