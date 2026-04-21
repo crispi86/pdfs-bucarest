@@ -60,7 +60,7 @@ app.get('/shopify/auth', (req, res) => {
 
   const params = new URLSearchParams({
     client_id: process.env.SHOPIFY_API_KEY,
-    scope: 'read_products,read_orders,read_metaobjects,read_locations',
+    scope: 'read_products,read_orders,read_metaobjects,read_locations,read_files',
     redirect_uri: `${process.env.APP_URL}/shopify/callback`,
     state,
   });
@@ -197,6 +197,39 @@ app.get('/api/files', async (req, res) => {
       }
     }
     res.json(images);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/textures', async (req, res) => {
+  try {
+    const cached = getCached('textures');
+    if (cached) return res.json(cached);
+
+    const token = process.env.SHOPIFY_ACCESS_TOKEN;
+    const query = `{ files(first: 100, query: "media_type:IMAGE filename:textura") {
+      edges { node { ... on MediaImage { image { url } alt } } }
+    } }`;
+    const bodyStr = JSON.stringify({ query });
+    const result = await new Promise((resolve, reject) => {
+      const opts = {
+        hostname: process.env.SHOPIFY_SHOP,
+        path: '/admin/api/2024-01/graphql.json',
+        method: 'POST',
+        headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) },
+      };
+      const req2 = require('https').request(opts, r => {
+        let d = ''; r.on('data', c => d += c);
+        r.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { reject(e); } });
+      });
+      req2.on('error', reject); req2.write(bodyStr); req2.end();
+    });
+    const textures = (result?.data?.files?.edges || [])
+      .map(e => ({ url: e.node?.image?.url, alt: e.node?.alt || '' }))
+      .filter(t => t.url && t.url.toLowerCase().includes('textura'));
+    setCached('textures', textures, 60 * 60 * 1000);
+    res.json(textures);
   } catch(e) {
     res.status(500).json({ error: e.message });
   }
@@ -462,18 +495,10 @@ function adminUI(host) {
     .msg.ok{background:#f0faf0;border:1px solid #b8e0b8;color:#2d6a2d}
     .msg.err{background:#fff5f5;border:1px solid #f5c0c0;color:#c0392b}
     .loading{display:none;font-size:13px;color:#999;margin-top:12px}
-    .file-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center}
-    .file-modal-overlay.open{display:flex}
-    .file-modal{background:#fff;width:680px;max-height:80vh;display:flex;flex-direction:column;border-radius:4px;overflow:hidden}
-    .file-modal-header{padding:20px 24px;border-bottom:1px solid #e8e2d9;display:flex;justify-content:space-between;align-items:center}
-    .file-modal-header h3{font-size:15px;font-weight:500;color:#1a1a1a}
-    .file-modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:#999;line-height:1}
-    .file-modal-body{overflow-y:auto;padding:20px;flex:1}
-    .file-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-    .file-thumb{aspect-ratio:1;overflow:hidden;border:2px solid transparent;border-radius:4px;cursor:pointer;transition:border-color 0.15s}
-    .file-thumb:hover{border-color:#9a7f5a}
-    .file-thumb img{width:100%;height:100%;object-fit:cover}
-    .file-modal-loading{text-align:center;padding:40px;color:#999;font-size:13px}
+    .texture-thumb{aspect-ratio:4/3;overflow:hidden;border:2px solid transparent;border-radius:4px;cursor:pointer;transition:border-color 0.15s;background:#f0ece8}
+    .texture-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+    .texture-thumb:hover{border-color:#c9a96e}
+    .texture-thumb.selected{border-color:#9a7f5a;box-shadow:0 0 0 2px #9a7f5a33}
     .automation-notice{background:#faf8f5;border-left:3px solid #9a7f5a;padding:10px 14px;font-size:13px;color:#555;line-height:1.4;margin-bottom:20px}
     .automation-notice strong{color:#1a1a1a;margin-right:4px}
   </style>
@@ -563,13 +588,13 @@ function adminUI(host) {
 
     <div class="card">
       <span class="section-label">Imagen de fondo (portada y contraportada)</span>
-      <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
-        <input id="catalog-bg-url" placeholder="URL de la imagen (o elige desde la biblioteca)" style="flex:1">
-        <button class="btn btn-secondary" onclick="openFilePicker()" style="white-space:nowrap;padding:10px 16px">Biblioteca Shopify</button>
+      <input type="hidden" id="catalog-bg-url">
+      <div id="texture-picker-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:8px">
+        <div style="color:#999;font-size:13px;grid-column:1/-1">Cargando texturas…</div>
       </div>
-      <div id="catalog-bg-preview" style="display:none;margin-top:8px">
-        <img id="catalog-bg-img" style="max-height:80px;border:1px solid #e8e2d9;border-radius:4px" alt="Vista previa">
-        <button onclick="clearBgImage()" style="background:none;border:none;color:#999;cursor:pointer;font-size:12px;margin-left:8px">✕ Quitar</button>
+      <div id="catalog-bg-selected" style="display:none;margin-top:10px;font-size:12px;color:#9a7f5a">
+        ✓ <span id="catalog-bg-selected-name"></span>
+        <button onclick="clearBgImage()" style="background:none;border:none;color:#999;cursor:pointer;font-size:12px;margin-left:8px;text-decoration:underline">Quitar</button>
       </div>
     </div>
 
@@ -713,24 +738,6 @@ function adminUI(host) {
 
 </div>
 
-<!-- MODAL SELECTOR DE IMÁGENES -->
-<div class="file-modal-overlay" id="file-modal-overlay" onclick="closeFilePicker(event)">
-  <div class="file-modal">
-    <div class="file-modal-header">
-      <h3>Biblioteca de imágenes</h3>
-      <button class="file-modal-close" onclick="closeFilePicker()">×</button>
-    </div>
-    <div style="padding:12px 20px;border-bottom:1px solid #e8e2d9">
-      <input id="file-search" type="text" placeholder="Buscar por nombre de producto…"
-        oninput="filterFiles(this.value)"
-        style="width:100%;padding:9px 14px;border:1px solid #ddd6cc;font-size:13px;font-family:inherit;background:#fdfcfb;outline:none">
-      <p style="font-size:11px;color:#9a7f5a;margin-top:6px">Sugerencia: busca la palabra "textura"</p>
-    </div>
-    <div class="file-modal-body">
-      <div id="file-grid-container" class="file-modal-loading">Cargando imágenes…</div>
-    </div>
-  </div>
-</div>
 
 <script>
 const collections = {};
@@ -746,6 +753,7 @@ async function init() {
       sel.appendChild(opt);
     });
   });
+  loadTexturePicker();
 }
 
 function showPage(name) {
@@ -987,80 +995,41 @@ async function generate(type, sendEmail = false) {
 
 init();
 
-// ── File picker ───────────────────────────────────────────────────────────────
-document.getElementById('catalog-bg-url').addEventListener('input', function() {
-  updateBgPreview(this.value.trim());
-});
+// ── Texture picker ────────────────────────────────────────────────────────────
+async function loadTexturePicker() {
+  const grid = document.getElementById('texture-picker-grid');
+  try {
+    const res = await fetch('/api/textures');
+    const textures = await res.json();
+    if (!textures.length) {
+      grid.innerHTML = '<div style="color:#999;font-size:13px;grid-column:1/-1">No se encontraron texturas.</div>';
+      return;
+    }
+    grid.innerHTML = textures.map((t, i) =>
+      \`<div class="texture-thumb" onclick="selectTexture('\${t.url}', this)" title="\${t.alt || ''}">
+        <img src="\${t.url}" alt="\${t.alt || ''}" loading="lazy">
+      </div>\`
+    ).join('');
+  } catch(e) {
+    grid.innerHTML = '<div style="color:#c00;font-size:13px;grid-column:1/-1">Error cargando texturas.</div>';
+  }
+}
 
-function updateBgPreview(url) {
-  const preview = document.getElementById('catalog-bg-preview');
-  const img = document.getElementById('catalog-bg-img');
-  if (url) { img.src = url; preview.style.display = 'block'; }
-  else { preview.style.display = 'none'; }
+function selectTexture(url, el) {
+  document.querySelectorAll('.texture-thumb').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('catalog-bg-url').value = url;
+  const name = url.split('/').pop().split('?')[0];
+  document.getElementById('catalog-bg-selected-name').textContent = name;
+  document.getElementById('catalog-bg-selected').style.display = 'block';
 }
 
 function clearBgImage() {
+  document.querySelectorAll('.texture-thumb').forEach(t => t.classList.remove('selected'));
   document.getElementById('catalog-bg-url').value = '';
-  document.getElementById('catalog-bg-preview').style.display = 'none';
+  document.getElementById('catalog-bg-selected').style.display = 'none';
 }
 
-let fileCache = null;
-
-function renderFileGrid(files) {
-  const container = document.getElementById('file-grid-container');
-  if (!files.length) {
-    container.className = '';
-    container.innerHTML = '<p style="padding:20px;color:#999;font-size:13px">No se encontraron imágenes.</p>';
-    return;
-  }
-  container.className = 'file-grid';
-  container.innerHTML = files.map(f =>
-    \`<div class="file-thumb" onclick="selectBgImage('\${f.url}')" title="\${f.altText || ''}">
-      <img src="\${f.url}" alt="\${f.altText || ''}" loading="lazy">
-    </div>\`
-  ).join('');
-}
-
-function filterFiles(query) {
-  if (!fileCache) return;
-  const q = query.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');
-  const filtered = q
-    ? fileCache.filter(f => (f.altText || '').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').includes(q))
-    : fileCache;
-  renderFileGrid(filtered);
-}
-
-async function openFilePicker() {
-  document.getElementById('file-modal-overlay').classList.add('open');
-  document.getElementById('file-search').value = '';
-  const container = document.getElementById('file-grid-container');
-
-  if (fileCache) {
-    renderFileGrid(fileCache);
-    return;
-  }
-
-  container.className = 'file-modal-loading';
-  container.innerHTML = 'Cargando imágenes…';
-  try {
-    const res = await fetch('/api/files');
-    fileCache = await res.json();
-    renderFileGrid(fileCache);
-  } catch(e) {
-    container.innerHTML = 'Error cargando imágenes.';
-  }
-}
-
-function selectBgImage(url) {
-  document.getElementById('catalog-bg-url').value = url;
-  updateBgPreview(url);
-  closeFilePicker();
-}
-
-function closeFilePicker(e) {
-  if (e && e.target !== document.getElementById('file-modal-overlay')) return;
-  document.getElementById('file-modal-overlay').classList.remove('open');
-}
 </script>
 </body>
 </html>`;
