@@ -4,6 +4,8 @@ function quoteHTML(products, options = {}) {
     clientEmail = '',
     clientRut = '',
     clientCompany = '',
+    clientRazonSocial = '',
+    clientDireccion = '',
     validDays = 7,
     notes = '',
   } = options;
@@ -76,7 +78,9 @@ function quoteHTML(products, options = {}) {
     .q-total-box { border: 1px solid #e8e2d9; padding: 16px 24px; min-width: 220px; }
     .q-total-label { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #9a7f5a; margin-bottom: 6px; }
     .q-total-amount { font-size: 22px; font-weight: 600; color: #1a1a1a; }
-    .q-notes { background: #faf9f7; border: 1px solid #e8e2d9; padding: 16px 20px; margin-bottom: 32px; font-size: 13px; color: #666; line-height: 1.6; }
+    .q-notes { background: #faf9f7; border: 1px solid #e8e2d9; padding: 16px 20px; margin-bottom: 32px; font-size: 13px; color: #666; line-height: 1.6; page-break-inside: avoid; }
+    .q-total-row { page-break-inside: avoid; }
+    .q-footer { page-break-inside: avoid; }
     .q-notes-label { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #9a7f5a; margin-bottom: 6px; }
     .q-footer { text-align: center; font-size: 11px; color: #bbb; border-top: 1px solid #e8e2d9; padding-top: 20px; letter-spacing: 0.04em; }
     .q-validity { font-size: 12px; color: #999; margin-bottom: 24px; }
@@ -111,7 +115,9 @@ function quoteHTML(products, options = {}) {
       <div class="q-party-info">
         ${clientName ? `<strong>${clientName}</strong><br>` : ''}
         ${clientCompany ? `${clientCompany}<br>` : ''}
+        ${clientRazonSocial ? `${clientRazonSocial}<br>` : ''}
         ${clientRut ? `RUT: ${clientRut}<br>` : ''}
+        ${clientDireccion ? `${clientDireccion}<br>` : ''}
         ${clientEmail ? `${clientEmail}` : ''}
       </div>
     </div>` : ''}

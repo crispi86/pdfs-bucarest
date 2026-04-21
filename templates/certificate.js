@@ -74,7 +74,7 @@ function certificateHTML(lineItems) {
   <style>
     * { font-family: "Hanken Grotesk", sans-serif !important; }
     body { margin: 0; padding: 0; background: #fff; color: #333; }
-    .header-banner { width: 80%; padding-top: 10px; height: auto; display: block; margin: 20px auto; }
+    .header-banner { width: 20%; max-width: 160px; height: auto; display: block; margin: 28px auto 20px; }
     .certificate-template { max-width: 800px; margin: 20px auto; padding: 20px; background: #fff; }
     .certificate-body { font-size: 16px; line-height: 1.6; margin-bottom: 20px; }
     .product-details { margin-bottom: 20px; }

@@ -186,11 +186,12 @@ app.get('/api/files', async (req, res) => {
 
 app.get('/api/products', async (req, res) => {
   try {
-    const { collection_id, tag, title, metafield_namespace, metafield_key, metafield_value } = req.query;
+    const { collection_id, tag, title, sku, metafield_namespace, metafield_key, metafield_value } = req.query;
     let products = [];
     if (collection_id) products = await shopify.getProductsByCollection(collection_id);
     else if (tag) products = await shopify.getProductsByTag(tag);
     else if (title) products = await shopify.getProductsByTitle(title);
+    else if (sku) products = await shopify.getProductsBySku(sku);
     else if (metafield_namespace && metafield_key && metafield_value)
       products = await shopify.getProductsByMetafield(metafield_namespace, metafield_key, metafield_value);
     res.json(products);
@@ -282,7 +283,7 @@ app.post('/generate/catalog', async (req, res) => {
 // ── Generar cotización ────────────────────────────────────────────────────────
 app.post('/generate/quote', async (req, res) => {
   try {
-    const { product_ids, client_name, client_email, client_rut, client_company, valid_days, notes, send_email, price_overrides } = req.body;
+    const { product_ids, client_name, client_email, client_rut, client_company, client_razon_social, client_direccion, valid_days, notes, send_email, price_overrides } = req.body;
     const ids = Array.isArray(product_ids) ? product_ids : [product_ids];
 
     const products = await Promise.all(ids.map(async id => {
@@ -293,6 +294,7 @@ app.post('/generate/quote', async (req, res) => {
     const html = quoteHTML(products, {
       clientName: client_name, clientEmail: client_email,
       clientRut: client_rut, clientCompany: client_company,
+      clientRazonSocial: client_razon_social, clientDireccion: client_direccion,
       validDays: valid_days || 7, notes,
     });
     const pdf = await generatePDF(html);
@@ -441,6 +443,8 @@ function adminUI(host) {
     .file-thumb:hover{border-color:#9a7f5a}
     .file-thumb img{width:100%;height:100%;object-fit:cover}
     .file-modal-loading{text-align:center;padding:40px;color:#999;font-size:13px}
+    .automation-notice{background:#faf8f5;border-left:3px solid #9a7f5a;padding:14px 18px;font-size:13px;color:#555;line-height:1.6;margin-bottom:24px}
+    .automation-notice strong{color:#1a1a1a;display:block;margin-bottom:4px}
   </style>
 </head>
 <body>
@@ -458,7 +462,11 @@ function adminUI(host) {
   <!-- CERTIFICADOS -->
   <div class="page active" id="page-certificates">
     <h1>Certificados de Autenticidad</h1>
-    <p class="subtitle">Los certificados se envían automáticamente al vender productos de la colección Pintura. También puede generarlos manualmente aquí.</p>
+    <p class="subtitle">Genera certificados de autenticidad manualmente o déjalos enviar de forma automática.</p>
+    <div class="automation-notice">
+      <strong>Automatización activa</strong>
+      Los certificados se generan automáticamente para todos los pedidos que incluyan productos de la colección <strong>Pintura</strong>. Se envía una copia al correo del cliente y otra a los correos internos: <strong>bucarestart@gmail.com</strong> y <strong>comunicaciones@bucarestart.cl</strong> para su impresión.
+    </div>
 
     <div class="card">
       <span class="section-label">Seleccionar productos</span>
@@ -466,6 +474,7 @@ function adminUI(host) {
         <button class="filter-btn active" onclick="setFilter('cert','collection')">Por colección</button>
         <button class="filter-btn" onclick="setFilter('cert','tag')">Por tag</button>
         <button class="filter-btn" onclick="setFilter('cert','title')">Por título</button>
+        <button class="filter-btn" onclick="setFilter('cert','sku')">Por SKU</button>
         <button class="filter-btn" onclick="setFilter('cert','metafield')">Por metacampo</button>
       </div>
       <div id="cert-filter-collection" class="filter-panel active">
@@ -478,6 +487,9 @@ function adminUI(host) {
       </div>
       <div id="cert-filter-title" class="filter-panel">
         <label>Palabra en título <input id="cert-title" placeholder="Ej: óleo" oninput="debounce(() => loadProducts('cert'), 600)"></label>
+      </div>
+      <div id="cert-filter-sku" class="filter-panel">
+        <label>SKU <input id="cert-sku" placeholder="Ej: ART-001" oninput="debounce(() => loadProducts('cert'), 600)"></label>
       </div>
       <div id="cert-filter-metafield" class="filter-panel">
         <div class="row row-3">
@@ -555,6 +567,7 @@ function adminUI(host) {
         <button class="filter-btn active" onclick="setFilter('catalog','collection')">Por colección</button>
         <button class="filter-btn" onclick="setFilter('catalog','tag')">Por tag</button>
         <button class="filter-btn" onclick="setFilter('catalog','title')">Por título</button>
+        <button class="filter-btn" onclick="setFilter('catalog','sku')">Por SKU</button>
         <button class="filter-btn" onclick="setFilter('catalog','metafield')">Por metacampo</button>
       </div>
       <div id="catalog-filter-collection" class="filter-panel active">
@@ -565,6 +578,9 @@ function adminUI(host) {
       </div>
       <div id="catalog-filter-title" class="filter-panel">
         <label>Palabra en título <input id="catalog-title-filter" placeholder="Ej: silla" oninput="debounce(() => loadProducts('catalog'), 600)"></label>
+      </div>
+      <div id="catalog-filter-sku" class="filter-panel">
+        <label>SKU <input id="catalog-sku" placeholder="Ej: ART-001" oninput="debounce(() => loadProducts('catalog'), 600)"></label>
       </div>
       <div id="catalog-filter-metafield" class="filter-panel">
         <div class="row row-3">
@@ -605,7 +621,11 @@ function adminUI(host) {
         <label>Empresa <input id="quote-company" placeholder="Nombre empresa (opcional)"></label>
       </div>
       <div class="row row-2">
+        <label>Razón social <input id="quote-razon-social" placeholder="Razón social legal"></label>
         <label>RUT <input id="quote-rut" placeholder="Ej: 12.345.678-9"></label>
+      </div>
+      <div class="row row-2">
+        <label>Dirección <input id="quote-direccion" placeholder="Dirección comercial"></label>
         <label>Correo <input id="quote-email" type="email" placeholder="cliente@ejemplo.com"></label>
       </div>
       <div class="row row-2">
@@ -620,6 +640,7 @@ function adminUI(host) {
         <button class="filter-btn active" onclick="setFilter('quote','collection')">Por colección</button>
         <button class="filter-btn" onclick="setFilter('quote','tag')">Por tag</button>
         <button class="filter-btn" onclick="setFilter('quote','title')">Por título</button>
+        <button class="filter-btn" onclick="setFilter('quote','sku')">Por SKU</button>
         <button class="filter-btn" onclick="setFilter('quote','metafield')">Por metacampo</button>
       </div>
       <div id="quote-filter-collection" class="filter-panel active">
@@ -630,6 +651,9 @@ function adminUI(host) {
       </div>
       <div id="quote-filter-title" class="filter-panel">
         <label>Palabra en título <input id="quote-title" placeholder="Ej: velador" oninput="debounce(() => loadProducts('quote'), 600)"></label>
+      </div>
+      <div id="quote-filter-sku" class="filter-panel">
+        <label>SKU <input id="quote-sku" placeholder="Ej: ART-001" oninput="debounce(() => loadProducts('quote'), 600)"></label>
       </div>
       <div id="quote-filter-metafield" class="filter-panel">
         <div class="row row-3">
@@ -661,6 +685,10 @@ function adminUI(host) {
   <div class="page" id="page-receipt">
     <h1>Comprobantes de Venta</h1>
     <p class="subtitle">Genera un comprobante en PDF para cualquier orden.</p>
+    <div class="automation-notice">
+      <strong>Automatización activa</strong>
+      Por cada pedido pagado en la tienda, se envía automáticamente un comprobante de venta al correo del cliente.
+    </div>
 
     <div class="card">
       <label>Número o ID de la orden
@@ -753,6 +781,10 @@ async function loadProducts(prefix) {
     const t = document.getElementById(titleInput).value.trim();
     if (!t) { loading.style.display = 'none'; return; }
     url += 'title=' + encodeURIComponent(t);
+  } else if (activeFilter.includes('sku')) {
+    const s = document.getElementById(prefix + '-sku').value.trim();
+    if (!s) { loading.style.display = 'none'; return; }
+    url += 'sku=' + encodeURIComponent(s);
   } else if (activeFilter.includes('metacampo')) {
     const ns = document.getElementById(prefix + '-meta-ns').value.trim();
     const key = document.getElementById(prefix + '-meta-key').value.trim();
@@ -802,6 +834,7 @@ function renderProducts(prefix, products, filter) {
       <th>Título</th>
       <th class="col-sku">SKU</th>
       <th class="col-price">Precio</th>
+      <th class="col-status">Disponible</th>
       <th class="col-status">Estado</th>
     </tr></thead>
     <tbody>
@@ -809,6 +842,7 @@ function renderProducts(prefix, products, filter) {
         const sku = p.variants && p.variants[0] && p.variants[0].sku ? p.variants[0].sku : '—';
         const rawPrice = p.variants && p.variants[0] ? p.variants[0].price : '';
         const displayPrice = rawPrice ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(parseFloat(rawPrice)) : '—';
+        const inventory = (p.variants || []).reduce((sum, v) => sum + (parseInt(v.inventory_quantity) || 0), 0);
         return \`<tr onclick="toggleRow(this)">
           <td class="col-check"><input type="checkbox" name="\${prefix}_product" value="\${p.id}" onchange="updateCount('\${prefix}');event.stopPropagation()"></td>
           <td>\${p.title}</td>
@@ -817,6 +851,7 @@ function renderProducts(prefix, products, filter) {
             <div class="price-row"><span class="price-lbl">Precio</span><span class="price-display">\${displayPrice}</span></div>
             <div class="price-row"><span class="price-lbl">Editar</span><input type="number" class="price-override" data-id="\${p.id}" data-prefix="\${prefix}" value="\${rawPrice}" placeholder="Personalizado"></div>
           </td>
+          <td style="font-size:13px;color:#555;text-align:center">\${inventory}</td>
           <td>\${statusBadge(p.status)}</td>
         </tr>\`;
       }).join('')}
@@ -912,6 +947,8 @@ async function generate(type, sendEmail = false) {
       body.client_email = document.getElementById('quote-email').value;
       body.client_rut = document.getElementById('quote-rut').value;
       body.client_company = document.getElementById('quote-company').value;
+      body.client_razon_social = document.getElementById('quote-razon-social').value;
+      body.client_direccion = document.getElementById('quote-direccion').value;
       body.valid_days = document.getElementById('quote-days').value;
       body.notes = document.getElementById('quote-notes').value;
       body.send_email = sendEmail;
