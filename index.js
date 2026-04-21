@@ -203,15 +203,16 @@ app.get('/api/products', async (req, res) => {
 app.post('/generate/certificate', async (req, res) => {
   try {
     console.log('BODY recibido:', JSON.stringify(req.body));
-    const { product_ids, send_email, to_email, to_name } = req.body;
+    const { product_ids, send_email, to_email, to_name, price_overrides } = req.body;
     const ids = Array.isArray(product_ids) ? product_ids : [product_ids];
 
     const lineItems = await Promise.all(ids.map(async id => {
       const p = await shopify.getProductById(id);
+      const priceRaw = price_overrides?.[id] || p.variants?.[0]?.price || 0;
       return {
         title: p.title,
         image: p.images?.[0]?.src || null,
-        price: parseFloat(p.variants?.[0]?.price || 0),
+        price: parseFloat(priceRaw),
         currency: 'CLP',
         description: p.body_html ? p.body_html.replace(/<[^>]*>/g, '') : null,
       };
@@ -281,10 +282,14 @@ app.post('/generate/catalog', async (req, res) => {
 // ── Generar cotización ────────────────────────────────────────────────────────
 app.post('/generate/quote', async (req, res) => {
   try {
-    const { product_ids, client_name, client_email, client_rut, client_company, valid_days, notes, send_email } = req.body;
+    const { product_ids, client_name, client_email, client_rut, client_company, valid_days, notes, send_email, price_overrides } = req.body;
     const ids = Array.isArray(product_ids) ? product_ids : [product_ids];
 
-    const products = await Promise.all(ids.map(id => shopify.getProductById(id)));
+    const products = await Promise.all(ids.map(async id => {
+      const p = await shopify.getProductById(id);
+      if (price_overrides?.[id] && p.variants?.[0]) p.variants[0].price = String(price_overrides[id]);
+      return p;
+    }));
     const html = quoteHTML(products, {
       clientName: client_name, clientEmail: client_email,
       clientRut: client_rut, clientCompany: client_company,
@@ -392,10 +397,13 @@ function adminUI(host) {
     .product-table thead th.col-check{width:36px}
     .product-table thead th.col-sku{width:130px}
     .product-table thead th.col-status{width:90px}
-    .product-table thead th.col-price{width:160px}
-    .price-override{width:90px;padding:4px 7px;border:1px solid #ddd6cc;font-size:12px;font-family:inherit;background:#fdfcfb;color:#1a1a1a}
+    .product-table thead th.col-price{width:180px}
+    .price-row{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+    .price-row:last-child{margin-bottom:0}
+    .price-lbl{font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#9a7f5a;width:38px;flex-shrink:0}
+    .price-override{width:100px;padding:4px 7px;border:1px solid #ddd6cc;font-size:12px;font-family:inherit;background:#fdfcfb;color:#1a1a1a}
     .price-override:focus{outline:none;border-color:#9a7f5a}
-    .price-display{font-size:12px;color:#666;display:block;margin-bottom:3px}
+    .price-display{font-size:12px;color:#555}
     .product-table tbody tr{border-bottom:1px solid #f0ece6;cursor:pointer;transition:background 0.1s}
     .product-table tbody tr:hover{background:#faf8f5}
     .product-table tbody td{padding:10px 12px;font-size:13px;color:#333;vertical-align:middle}
@@ -788,13 +796,12 @@ function renderProducts(prefix, products, filter) {
     if (btn) btn.style.display = 'none';
     return;
   }
-  const isCatalog = prefix === 'catalog';
   list.innerHTML = \`<table class="product-table">
     <thead><tr>
       <th class="col-check"></th>
       <th>Título</th>
       <th class="col-sku">SKU</th>
-      \${isCatalog ? '<th class="col-price">Precio</th>' : ''}
+      <th class="col-price">Precio</th>
       <th class="col-status">Estado</th>
     </tr></thead>
     <tbody>
@@ -806,10 +813,10 @@ function renderProducts(prefix, products, filter) {
           <td class="col-check"><input type="checkbox" name="\${prefix}_product" value="\${p.id}" onchange="updateCount('\${prefix}');event.stopPropagation()"></td>
           <td>\${p.title}</td>
           <td class="col-sku">\${sku}</td>
-          \${isCatalog ? \`<td class="col-price" onclick="event.stopPropagation()">
-            <span class="price-display">\${displayPrice}</span>
-            <input type="number" class="price-override" data-id="\${p.id}" value="\${rawPrice}" placeholder="Precio">
-          </td>\` : ''}
+          <td class="col-price" onclick="event.stopPropagation()">
+            <div class="price-row"><span class="price-lbl">Precio</span><span class="price-display">\${displayPrice}</span></div>
+            <div class="price-row"><span class="price-lbl">Editar</span><input type="number" class="price-override" data-id="\${p.id}" data-prefix="\${prefix}" value="\${rawPrice}" placeholder="Personalizado"></div>
+          </td>
           <td>\${statusBadge(p.status)}</td>
         </tr>\`;
       }).join('')}
@@ -879,6 +886,11 @@ async function generate(type, sendEmail = false) {
       body.to_name = document.getElementById('cert-to-name').value;
       body.to_email = document.getElementById('cert-to-email').value;
       body.send_email = !!body.to_email;
+      const certOverrides = {};
+      document.querySelectorAll('.price-override[data-prefix="cert"]').forEach(input => {
+        if (input.value) certOverrides[input.dataset.id] = input.value;
+      });
+      body.price_overrides = certOverrides;
     }
     if (type === 'catalog') {
       body.title = document.getElementById('catalog-title').value || 'Catálogo';
@@ -903,6 +915,11 @@ async function generate(type, sendEmail = false) {
       body.valid_days = document.getElementById('quote-days').value;
       body.notes = document.getElementById('quote-notes').value;
       body.send_email = sendEmail;
+      const quoteOverrides = {};
+      document.querySelectorAll('.price-override[data-prefix="quote"]').forEach(input => {
+        if (input.value) quoteOverrides[input.dataset.id] = input.value;
+      });
+      body.price_overrides = quoteOverrides;
     }
   }
 
