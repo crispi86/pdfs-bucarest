@@ -78,6 +78,9 @@ app.get('/shopify/callback', async (req, res) => {
   });
   const { access_token } = await r.json();
 
+  // Actualizar el token en memoria para que las llamadas a Shopify usen el nuevo token con los scopes actualizados
+  if (access_token) process.env.SHOPIFY_ACCESS_TOKEN = access_token;
+
   authorizedShops.add(shop);
   const host = savedHost || Buffer.from(`${shop}/admin`).toString('base64');
   res.redirect(`/admin?shop=${encodeURIComponent(shop)}&host=${encodeURIComponent(host)}`);
