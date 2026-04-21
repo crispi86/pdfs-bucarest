@@ -262,7 +262,7 @@ app.post('/generate/certificate', async (req, res) => {
 // ── Generar catálogo ──────────────────────────────────────────────────────────
 app.post('/generate/catalog', async (req, res) => {
   try {
-    const { product_ids, title, show_prices, send_email, responsable, cargo, correo, telefono, bg_image, price_overrides } = req.body;
+    const { product_ids, title, show_prices, show_estado, send_email, responsable, cargo, correo, telefono, bg_image, price_overrides } = req.body;
     const ids = Array.isArray(product_ids) ? product_ids : [product_ids];
 
     const [products, locations] = await Promise.all([
@@ -280,6 +280,7 @@ app.post('/generate/catalog', async (req, res) => {
     const html = catalogHTML(products, {
       title: title || 'Catálogo',
       showPrices: show_prices !== 'false',
+      showEstado: show_estado === 'true',
       responsable, cargo, correo, telefono,
       bgImage: bg_image,
       locations,
@@ -557,6 +558,7 @@ function adminUI(host) {
       <span class="section-label">Título del catálogo</span>
       <input id="catalog-title" placeholder="Ej: Catálogo Pintura Siglo XIX" style="width:100%;margin-bottom:16px">
       <div class="checkbox-row"><input type="checkbox" id="catalog-prices" checked><label for="catalog-prices" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar precios</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="catalog-show-estado"><label for="catalog-show-estado" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar metacampo Estado</label></div>
     </div>
 
     <div class="card">
@@ -930,6 +932,7 @@ async function generate(type, sendEmail = false) {
     if (type === 'catalog') {
       body.title = document.getElementById('catalog-title').value || 'Catálogo';
       body.show_prices = document.getElementById('catalog-prices').checked ? 'true' : 'false';
+      body.show_estado = document.getElementById('catalog-show-estado').checked ? 'true' : 'false';
       body.responsable = document.getElementById('catalog-responsable').value;
       body.cargo = document.getElementById('catalog-cargo').value;
       body.correo = document.getElementById('catalog-correo').value;

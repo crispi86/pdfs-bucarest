@@ -2,6 +2,7 @@ function catalogHTML(products, options = {}) {
   const {
     title = 'Catálogo',
     showPrices = true,
+    showEstado = false,
     responsable = '',
     cargo = '',
     correo = '',
@@ -22,7 +23,7 @@ function catalogHTML(products, options = {}) {
     epocas:           'Época',
     estilo_de_diseno: 'Estilo de diseño',
     materiales:       'Materiales',
-    estado:           'Estado',
+    ...(showEstado ? { estado: 'Estado' } : {}),
     ancho:            'Ancho',
     profundidad:      'Profundidad',
     alto:             'Alto',
