@@ -208,7 +208,8 @@ app.get('/api/textures', async (req, res) => {
     if (cached) return res.json(cached);
 
     const token = process.env.SHOPIFY_ACCESS_TOKEN;
-    const query = `{ files(first: 100, query: "media_type:IMAGE filename:textura") {
+    // Traer hasta 200 imágenes de la biblioteca y filtrar por "textura" en la URL
+    const query = `{ files(first: 200, query: "media_type:IMAGE") {
       edges { node { ... on MediaImage { image { url } alt } } }
     } }`;
     const bodyStr = JSON.stringify({ query });
@@ -225,9 +226,16 @@ app.get('/api/textures', async (req, res) => {
       });
       req2.on('error', reject); req2.write(bodyStr); req2.end();
     });
+
+    if (result?.errors) {
+      console.error('GraphQL errors:', JSON.stringify(result.errors));
+      return res.status(500).json({ error: result.errors[0]?.message || 'GraphQL error' });
+    }
+
     const textures = (result?.data?.files?.edges || [])
       .map(e => ({ url: e.node?.image?.url, alt: e.node?.alt || '' }))
       .filter(t => t.url && t.url.toLowerCase().includes('textura'));
+
     setCached('textures', textures, 60 * 60 * 1000);
     res.json(textures);
   } catch(e) {
