@@ -490,7 +490,7 @@ function adminUI(host) {
     .msg.ok{background:#f0faf0;border:1px solid #b8e0b8;color:#2d6a2d}
     .msg.err{background:#fff5f5;border:1px solid #f5c0c0;color:#c0392b}
     .loading{display:none;font-size:13px;color:#999;margin-top:12px}
-    .texture-thumb{aspect-ratio:4/3;overflow:hidden;border:2px solid transparent;border-radius:4px;cursor:pointer;transition:border-color 0.15s;background:#f0ece8}
+    .texture-thumb{aspect-ratio:4/3;overflow:hidden;border:2px solid transparent;border-radius:3px;cursor:pointer;transition:border-color 0.15s;background:#f0ece8;max-height:60px}
     .texture-thumb img{width:100%;height:100%;object-fit:cover;display:block}
     .texture-thumb:hover{border-color:#c9a96e}
     .texture-thumb.selected{border-color:#9a7f5a;box-shadow:0 0 0 2px #9a7f5a33}
@@ -584,7 +584,7 @@ function adminUI(host) {
     <div class="card">
       <span class="section-label">Imagen de fondo (portada y contraportada)</span>
       <input type="hidden" id="catalog-bg-url">
-      <div id="texture-picker-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:8px">
+      <div id="texture-picker-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:8px">
         <div style="color:#999;font-size:13px;grid-column:1/-1">Cargando texturas…</div>
       </div>
       <div id="catalog-bg-selected" style="display:none;margin-top:10px;font-size:12px;color:#9a7f5a">
