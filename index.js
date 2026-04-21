@@ -430,12 +430,34 @@ function adminUI(host) {
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:"Hanken Grotesk",sans-serif;background:#faf9f7;color:#333;font-size:14px}
-    .sidebar{position:fixed;top:0;left:0;width:220px;height:100vh;background:#1a1a1a;padding:28px 20px;display:flex;flex-direction:column;gap:8px}
+    .sidebar{position:fixed;top:0;left:0;width:220px;height:100vh;background:#1a1a1a;padding:28px 20px;display:flex;flex-direction:column;gap:8px;z-index:100;transition:transform 0.25s}
     .sidebar-logo{color:#fff;font-size:13px;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:24px;opacity:0.7}
     .nav-btn{background:none;border:none;color:#aaa;font-size:13px;padding:10px 14px;text-align:left;cursor:pointer;border-radius:4px;width:100%;font-family:inherit;transition:all 0.15s}
     .nav-btn:hover,.nav-btn.active{background:#2a2a2a;color:#fff}
     .nav-btn.active{color:#c9a96e}
     .main{margin-left:220px;padding:40px 48px;min-height:100vh}
+    .topbar{display:none;position:fixed;top:0;left:0;right:0;height:52px;background:#1a1a1a;align-items:center;padding:0 16px;z-index:99;gap:14px}
+    .topbar-logo{color:#fff;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;opacity:0.7;flex:1}
+    .hamburger{background:none;border:none;cursor:pointer;padding:6px;display:flex;flex-direction:column;gap:5px}
+    .hamburger span{display:block;width:22px;height:2px;background:#fff;border-radius:2px;transition:all 0.2s}
+    .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99}
+    .sidebar-overlay.open{display:block}
+    @media(max-width:768px){
+      .topbar{display:flex}
+      .sidebar{transform:translateX(-220px);top:52px;height:calc(100vh - 52px);padding:20px 16px}
+      .sidebar.open{transform:translateX(0)}
+      .main{margin-left:0;padding:72px 16px 32px}
+      .row-2,.row-3{grid-template-columns:1fr}
+      .card{padding:18px 16px}
+      h1{font-size:20px}
+      .product-list{overflow-x:auto}
+      .product-table thead th.col-sku{display:none}
+      .product-table tbody td:nth-child(3){display:none}
+      .btn-row{flex-direction:column}
+      .btn{text-align:center}
+      .filter-row{gap:6px}
+      .filter-btn{padding:6px 10px;font-size:11px}
+    }
     .page{display:none}.page.active{display:block}
     h1{font-size:24px;font-weight:400;color:#1a1a1a;margin-bottom:6px}
     .subtitle{color:#999;font-size:13px;margin-bottom:32px}
@@ -499,6 +521,14 @@ function adminUI(host) {
   </style>
 </head>
 <body>
+
+<div class="topbar">
+  <button class="hamburger" onclick="toggleSidebar()">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="topbar-logo">Bucarest Art &amp; Antiques</div>
+</div>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
 <div class="sidebar">
   <div class="sidebar-logo">Bucarest Art &amp; Antiques</div>
@@ -751,11 +781,17 @@ async function init() {
   loadTexturePicker();
 }
 
+function toggleSidebar() {
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   event.target.classList.add('active');
+  if (window.innerWidth <= 768) toggleSidebar();
 }
 
 function setFilter(prefix, type) {
