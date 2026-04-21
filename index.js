@@ -443,8 +443,8 @@ function adminUI(host) {
     .file-thumb:hover{border-color:#9a7f5a}
     .file-thumb img{width:100%;height:100%;object-fit:cover}
     .file-modal-loading{text-align:center;padding:40px;color:#999;font-size:13px}
-    .automation-notice{background:#faf8f5;border-left:3px solid #9a7f5a;padding:14px 18px;font-size:13px;color:#555;line-height:1.6;margin-bottom:24px}
-    .automation-notice strong{color:#1a1a1a;display:block;margin-bottom:4px}
+    .automation-notice{background:#faf8f5;border-left:3px solid #9a7f5a;padding:10px 14px;font-size:13px;color:#555;line-height:1.4;margin-bottom:20px}
+    .automation-notice strong{color:#1a1a1a;margin-right:4px}
   </style>
 </head>
 <body>
