@@ -13,6 +13,24 @@ const shopify = require('./shopify');
 
 const app = express();
 
+// ── Caché simple con TTL ──────────────────────────────────────────────────────
+const _cache = new Map();
+function getCached(key) {
+  const e = _cache.get(key);
+  if (!e) return null;
+  if (Date.now() > e.exp) { _cache.delete(key); return null; }
+  return e.data;
+}
+function setCached(key, data, ttlMs) {
+  _cache.set(key, { data, exp: Date.now() + ttlMs });
+  return data;
+}
+async function withCache(key, ttlMs, fn) {
+  const hit = getCached(key);
+  if (hit !== null) return hit;
+  return setCached(key, await fn(), ttlMs);
+}
+
 // ── Auth store ────────────────────────────────────────────────────────────────
 const pendingStates = new Map();  // state -> host
 const authorizedShops = new Set(); // shops que completaron OAuth
@@ -158,7 +176,7 @@ app.get('/admin', requireAuth, (req, res) => {
 // ── API: colecciones y tags ───────────────────────────────────────────────────
 app.get('/api/collections', async (req, res) => {
   try {
-    const collections = await shopify.getCollections();
+    const collections = await withCache('collections', 30 * 60 * 1000, () => shopify.getCollections());
     res.json(collections);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -187,13 +205,18 @@ app.get('/api/files', async (req, res) => {
 app.get('/api/products', async (req, res) => {
   try {
     const { collection_id, tag, title, sku, metafield_namespace, metafield_key, metafield_value } = req.query;
+    const cacheKey = JSON.stringify(req.query);
+    const TTL = 5 * 60 * 1000;
     let products = [];
-    if (collection_id) products = await shopify.getProductsByCollection(collection_id);
-    else if (tag) products = await shopify.getProductsByTag(tag);
-    else if (title) products = await shopify.getProductsByTitle(title);
-    else if (sku) products = await shopify.getProductsBySku(sku);
-    else if (metafield_namespace && metafield_key && metafield_value)
-      products = await shopify.getProductsByMetafield(metafield_namespace, metafield_key, metafield_value);
+    products = await withCache(cacheKey, TTL, async () => {
+      if (collection_id) return shopify.getProductsByCollection(collection_id);
+      if (tag) return shopify.getProductsByTag(tag);
+      if (title) return shopify.getProductsByTitle(title);
+      if (sku) return shopify.getProductsBySku(sku);
+      if (metafield_namespace && metafield_key && metafield_value)
+        return shopify.getProductsByMetafield(metafield_namespace, metafield_key, metafield_value);
+      return [];
+    });
     res.json(products);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -253,7 +276,7 @@ app.post('/generate/catalog', async (req, res) => {
         }
         return p;
       })),
-      shopify.getLocations(),
+      withCache('locations', 60 * 60 * 1000, () => shopify.getLocations()),
     ]);
 
     const html = catalogHTML(products, {
