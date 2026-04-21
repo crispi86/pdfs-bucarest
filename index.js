@@ -202,6 +202,28 @@ app.get('/api/files', async (req, res) => {
   }
 });
 
+app.get('/api/textures/debug', async (req, res) => {
+  const token = process.env.SHOPIFY_ACCESS_TOKEN;
+  const query = `{ files(first: 10, query: "media_type:IMAGE") {
+    edges { node { ... on MediaImage { image { url } alt } } }
+  } }`;
+  const bodyStr = JSON.stringify({ query });
+  const result = await new Promise((resolve, reject) => {
+    const opts = {
+      hostname: process.env.SHOPIFY_SHOP,
+      path: '/admin/api/2024-01/graphql.json',
+      method: 'POST',
+      headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) },
+    };
+    const req2 = require('https').request(opts, r => {
+      let d = ''; r.on('data', c => d += c);
+      r.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { reject(e); } });
+    });
+    req2.on('error', reject); req2.write(bodyStr); req2.end();
+  });
+  res.json(result);
+});
+
 app.get('/api/textures', async (req, res) => {
   try {
     const cached = getCached('textures');
