@@ -202,67 +202,32 @@ app.get('/api/files', async (req, res) => {
   }
 });
 
-app.get('/api/textures/debug', async (req, res) => {
-  const token = process.env.SHOPIFY_ACCESS_TOKEN;
-  const query = `{ files(first: 10, query: "media_type:IMAGE") {
-    edges { node { ... on MediaImage { image { url } alt } } }
-  } }`;
-  const bodyStr = JSON.stringify({ query });
-  const result = await new Promise((resolve, reject) => {
-    const opts = {
-      hostname: process.env.SHOPIFY_SHOP,
-      path: '/admin/api/2024-01/graphql.json',
-      method: 'POST',
-      headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) },
-    };
-    const req2 = require('https').request(opts, r => {
-      let d = ''; r.on('data', c => d += c);
-      r.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { reject(e); } });
-    });
-    req2.on('error', reject); req2.write(bodyStr); req2.end();
-  });
-  res.json(result);
-});
+const TEXTURES = [
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura_marmolsi.png?v=1774832085',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura28.jpg?v=1772673637',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura27.jpg?v=1772586779',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura26.png?v=1772586525',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura25.jpg?v=1772585745',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura24.jpg?v=1772585547',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura23.jpg?v=1772585360',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura22.jpg?v=1772585012',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura21.jpg?v=1772584942',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura111.jpg?v=1771817210',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura9_c4b6a85d-6e54-4224-a5bf-87e48008a8c4.jpg?v=1768408593',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura10.jpg?v=1768404369',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura9.jpg?v=1768261937',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura8.jpg?v=1768252336',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura7.jpg?v=1767989572',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura6.jpg?v=1767989537',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura5.jpg?v=1767989506',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura4.jpg?v=1767987760',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura3.jpg?v=1767987732',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura2.jpg?v=1767991848',
+  'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura_madera.jpg?v=1761008010',
+];
 
-app.get('/api/textures', async (req, res) => {
-  try {
-    const cached = getCached('textures');
-    if (cached) return res.json(cached);
-
-    const token = process.env.SHOPIFY_ACCESS_TOKEN;
-    // Traer hasta 200 imágenes de la biblioteca y filtrar por "textura" en la URL
-    const query = `{ files(first: 200, query: "media_type:IMAGE") {
-      edges { node { ... on MediaImage { image { url } alt } } }
-    } }`;
-    const bodyStr = JSON.stringify({ query });
-    const result = await new Promise((resolve, reject) => {
-      const opts = {
-        hostname: process.env.SHOPIFY_SHOP,
-        path: '/admin/api/2024-01/graphql.json',
-        method: 'POST',
-        headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) },
-      };
-      const req2 = require('https').request(opts, r => {
-        let d = ''; r.on('data', c => d += c);
-        r.on('end', () => { try { resolve(JSON.parse(d)); } catch(e) { reject(e); } });
-      });
-      req2.on('error', reject); req2.write(bodyStr); req2.end();
-    });
-
-    if (result?.errors) {
-      console.error('GraphQL errors:', JSON.stringify(result.errors));
-      return res.status(500).json({ error: result.errors[0]?.message || 'GraphQL error' });
-    }
-
-    const textures = (result?.data?.files?.edges || [])
-      .map(e => ({ url: e.node?.image?.url, alt: e.node?.alt || '' }))
-      .filter(t => t.url && t.url.toLowerCase().includes('textura'));
-
-    setCached('textures', textures, 60 * 60 * 1000);
-    res.json(textures);
-  } catch(e) {
-    res.status(500).json({ error: e.message });
-  }
+app.get('/api/textures', (req, res) => {
+  res.json(TEXTURES.map(url => ({ url, alt: url.split('/').pop().split('?')[0].replace(/\.[^.]+$/, '').replace(/_/g, ' ') })));
 });
 
 app.get('/api/products', async (req, res) => {
