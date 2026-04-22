@@ -152,7 +152,7 @@ app.post('/webhook/orders/paid', async (req, res) => {
           description: null,
         }));
         const certHtml = certificateHTML(lineItems);
-        const certPdf = await generatePDF(certHtml, { format: 'Letter', margin: { top: '20mm', right: '25mm', bottom: '20mm', left: '25mm' } });
+        const certPdf = await generatePDF(certHtml, { format: 'Letter', margin: { top: '0', right: '0', bottom: '0', left: '0' } });
         if (customerEmail) {
           await sendCertificate(customerEmail, customerName, certPdf, pinturaItems.map(i => i.title).join(', '));
         }
@@ -269,7 +269,7 @@ app.post('/generate/certificate', async (req, res) => {
     }));
 
     const html = certificateHTML(lineItems);
-    const pdf = await generatePDF(html, { format: 'Letter', margin: { top: '20mm', right: '25mm', bottom: '20mm', left: '25mm' } });
+    const pdf = await generatePDF(html, { format: 'Letter', margin: { top: '0', right: '0', bottom: '0', left: '0' } });
 
     if (send_email && to_email) {
       console.log('Enviando certificado a:', to_email);
