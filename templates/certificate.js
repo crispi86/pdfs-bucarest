@@ -86,7 +86,7 @@ function certificateHTML(lineItems) {
     .certificate-page { width: 100%; }
 
     .header { text-align: center; margin-bottom: 32px; }
-    .header-img { width: calc(100% + 20px); height: auto; display: inline-block; margin: 0 -10px; border: none; box-shadow: none; }
+    .header-img { width: 90%; height: auto; display: inline-block; border: none; box-shadow: none; }
 
     .a-quien { text-align: left; font-size: 13px; margin-bottom: 0; }
 
