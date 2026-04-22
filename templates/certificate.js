@@ -18,10 +18,17 @@ function certificateHTML(lineItems) {
   const { dayName, dayNumber, monthName, year } = spanishDate();
 
   const pages = lineItems.map(item => `
-    <div class="certificate-template">
-      <img src="https://cdn.shopify.com/s/files/1/0814/7671/4798/files/logo_web.png?v=1765624776" alt="Encabezado" class="header-banner">
+    <div class="certificate-page">
 
-      <div class="certificate-body">
+      <div class="header">
+        <img src="https://cdn.shopify.com/s/files/1/0814/7671/4798/files/encabezado_certificado.jpg?v=1776881313" alt="Encabezado Bucarest" class="header-img">
+      </div>
+
+      <p class="a-quien">A quien corresponda,</p>
+
+      <div class="spacer"></div>
+
+      <div class="body-text">
         <p>
           Este documento se extiende con fecha de
           <strong>${dayName} ${dayNumber} de ${monthName} de ${year}</strong>, para certificar que la pieza
@@ -61,6 +68,7 @@ function certificateHTML(lineItems) {
           </p>
         </div>
       </div>
+
     </div>
     <div style="page-break-after: always;"></div>
   `).join('');
@@ -72,18 +80,28 @@ function certificateHTML(lineItems) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
   <style>
-    * { font-family: "Hanken Grotesk", sans-serif !important; }
-    body { margin: 0; padding: 0; background: #fff; color: #333; }
-    .header-banner { width: 20%; max-width: 160px; height: auto; display: block; margin: 28px auto 20px; }
-    .certificate-template { max-width: 800px; margin: 20px auto; padding: 20px; background: #fff; }
-    .certificate-body { font-size: 16px; line-height: 1.6; margin-bottom: 20px; }
-    .product-details { margin-bottom: 20px; }
-    h2 { font-size: 20px; font-weight: 600; }
+    * { box-sizing: border-box; font-family: "Hanken Grotesk", sans-serif !important; margin: 0; padding: 0; }
+    body { background: #fff; color: #333; font-size: 13px; line-height: 1.6; }
+
+    .certificate-page { width: 100%; }
+
+    .header { text-align: center; margin-bottom: 32px; }
+    .header-img { width: 60%; max-width: 60%; height: auto; display: inline-block; }
+
+    .a-quien { text-align: left; font-size: 13px; margin-bottom: 0; }
+
+    .spacer { height: 80px; }
+
+    .body-text { font-size: 13px; line-height: 1.8; margin-bottom: 28px; text-align: justify; }
+
+    .product-details { margin-bottom: 24px; }
+    h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
     .product-info { display: flex; align-items: flex-start; gap: 20px; }
-    .product-photo { max-width: 200px; height: auto; border: 1px solid #ddd; padding: 5px; }
-    .footer { text-align: center; font-size: 14px; line-height: 1.5; }
-    .signature-area { margin-top: 30px; text-align: center; }
-    .signature-area img { max-width: 150px; height: auto; margin-bottom: 10px; }
+    .product-photo { max-width: 180px; height: auto; border: 1px solid #ddd; padding: 4px; }
+
+    .footer { margin-top: 24px; font-size: 11px; line-height: 1.5; text-align: center; }
+    .signature-area { margin-top: 24px; text-align: center; }
+    .signature-area img { max-width: 120px; height: auto; margin-bottom: 8px; }
     a { color: #333; text-decoration: none; }
   </style>
 </head>
