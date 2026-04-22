@@ -83,10 +83,10 @@ function certificateHTML(lineItems) {
     * { box-sizing: border-box; font-family: "Hanken Grotesk", sans-serif !important; margin: 0; padding: 0; }
     body { background: #fff; color: #333; font-size: 13px; line-height: 1.6; }
 
-    .certificate-page { width: 100%; padding: 0 25mm 20mm 25mm; }
+    .certificate-page { width: 100%; }
 
-    .header { text-align: center; margin: 0 -25mm 32px -25mm; }
-    .header-img { width: 100%; height: auto; display: block; border: none; box-shadow: none; }
+    .header { text-align: center; margin-bottom: 32px; }
+    .header-img { width: calc(100% + 20px); height: auto; display: inline-block; margin: 0 -10px; border: none; box-shadow: none; }
 
     .a-quien { text-align: left; font-size: 13px; margin-bottom: 0; }
 
