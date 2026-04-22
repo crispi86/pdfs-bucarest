@@ -44,4 +44,17 @@ async function sendPDFToInternal(pdfBuffer, filename, subject, bodyHtml, extraTo
   });
 }
 
-module.exports = { sendCertificate, sendPDFToInternal };
+async function sendToCustomer(toEmail, pdfBuffer, filename, subject, bodyHtml) {
+  const resend = getResend();
+  const from = process.env.FROM_EMAIL || 'Bucarest Art & Antiques <onboarding@resend.dev>';
+  const result = await resend.emails.send({
+    from,
+    to: [toEmail],
+    subject,
+    html: bodyHtml,
+    attachments: [{ filename, content: pdfBuffer.toString('base64') }],
+  });
+  console.log('Resend result (customer):', JSON.stringify(result));
+}
+
+module.exports = { sendCertificate, sendPDFToInternal, sendToCustomer };

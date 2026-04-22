@@ -4,7 +4,7 @@ process.on('unhandledRejection', err => console.error('UNHANDLED:', err));
 const express = require('express');
 const crypto = require('crypto');
 const { generatePDF } = require('./pdf');
-const { sendCertificate, sendPDFToInternal } = require('./email');
+const { sendCertificate, sendPDFToInternal, sendToCustomer } = require('./email');
 const { certificateHTML } = require('./templates/certificate');
 const { catalogHTML } = require('./templates/catalog');
 const { quoteHTML } = require('./templates/quote');
@@ -129,10 +129,10 @@ app.post('/webhook/orders/paid', async (req, res) => {
     const filename = `Comprobante_${order.name || order.order_number}.pdf`;
 
     if (customerEmail) {
-      await sendPDFToInternal(receiptPdf, filename,
+      await sendToCustomer(
+        customerEmail, receiptPdf, filename,
         `Comprobante de venta — ${order.name || '#' + order.order_number}`,
-        `<p>Estimado/a ${customerName},</p><p>Adjunto encontrará su comprobante de venta. Gracias por su compra en Bucarest Art &amp; Antiques.</p>`,
-        customerEmail
+        `<p>Estimado/a ${customerName},</p><p>Adjunto encontrará su comprobante de venta. Gracias por su compra en Bucarest Art &amp; Antiques.</p>`
       );
     }
 
