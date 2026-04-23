@@ -52,6 +52,85 @@ app.use(express.urlencoded({ extended: true }));
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/', (req, res) => res.send('Bucarest PDF Generator — OK'));
 
+// ── Shipping rate proxy → Envia API ───────────────────────────────────────────
+app.get('/api/shipping-rate', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  const { postal, weight_g } = req.query;
+  if (!postal) return res.json({ fallback: true });
+
+  const weightKg = Math.max(0.5, parseFloat(weight_g || '1000') / 1000);
+  const cacheKey = `rate_${postal}_${Math.round(weightKg * 10)}`;
+  const cached = getCached(cacheKey);
+  if (cached) return res.json(cached);
+
+  try {
+    const enviaRes = await fetch('https://api.envia.com/ship/rate/', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.ENVIA_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(8000),
+      body: JSON.stringify({
+        origin: {
+          name: 'Bucarest Art & Antiques',
+          company: 'Bucarest Art & Antiques',
+          email: 'ventas@bucarestart.cl',
+          phone: '56929537565',
+          street: 'Bucarest',
+          number: '034',
+          district: 'Providencia',
+          city: 'Santiago',
+          state: 'Región Metropolitana de Santiago',
+          country: 'CL',
+          postalCode: '7510050',
+        },
+        destination: {
+          name: 'Cliente',
+          country: 'CL',
+          postalCode: postal,
+        },
+        packages: [{
+          content: 'Arte y antigüedades',
+          amount: 1,
+          type: 'box',
+          dimensions: { length: 40, width: 40, height: 40 },
+          dimensionsUnit: 'CM',
+          weight: weightKg,
+          weightUnit: 'KG',
+        }],
+        shipment: { type: 1 },
+      }),
+    });
+
+    const data = await enviaRes.json();
+    console.log('Envia rate response:', JSON.stringify(data).substring(0, 600));
+
+    const rates = Array.isArray(data.data) ? data.data
+      : Array.isArray(data.rates) ? data.rates
+      : Array.isArray(data.carriers) ? data.carriers
+      : [];
+
+    if (!rates.length) return res.json({ fallback: true });
+
+    const cheapest = rates.reduce((a, b) => {
+      const ap = a.totalPrice ?? a.price ?? a.amount ?? 0;
+      const bp = b.totalPrice ?? b.price ?? b.amount ?? 0;
+      return ap < bp ? a : b;
+    });
+
+    const price = cheapest.totalPrice ?? cheapest.price ?? cheapest.amount;
+    const days = cheapest.deliveryEstimate ?? cheapest.days ?? cheapest.estimated_days ?? null;
+
+    const result = { price: Math.round(price), days };
+    setCached(cacheKey, result, 60 * 60 * 1000);
+    res.json(result);
+  } catch (e) {
+    console.error('Envia rate error:', e.message);
+    res.json({ fallback: true });
+  }
+});
+
 // ── OAuth: inicio ─────────────────────────────────────────────────────────────
 app.get('/shopify/auth', (req, res) => {
   const shop = req.query.shop || process.env.SHOPIFY_SHOP;
