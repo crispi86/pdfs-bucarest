@@ -52,14 +52,16 @@ app.use(express.urlencoded({ extended: true }));
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/', (req, res) => res.send('Bucarest PDF Generator — OK'));
 
-// ── Shipping rate proxy → Envia API ───────────────────────────────────────────
+// ── Shipping rate proxy → Envia API (Starken) ────────────────────────────────
 app.get('/api/shipping-rate', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  const { postal, weight_g } = req.query;
+  const { postal, weight_g, city, rcode } = req.query;
   if (!postal) return res.json({ fallback: true });
 
   const weightKg = Math.max(0.5, parseFloat(weight_g || '1000') / 1000);
-  const cacheKey = `rate_${postal}_${Math.round(weightKg * 10)}`;
+  const destCity = city || 'Santiago';
+  const destState = rcode || 'RM';
+  const cacheKey = `rate_${postal}_${destCity}_${Math.round(weightKg * 10)}`;
   const cached = getCached(cacheKey);
   if (cached) return res.json(cached);
 
@@ -74,19 +76,19 @@ app.get('/api/shipping-rate', async (req, res) => {
       body: JSON.stringify({
         origin: {
           name: 'Bucarest Art & Antiques',
-          company: 'Bucarest Art & Antiques',
-          email: 'ventas@bucarestart.cl',
-          phone: '56929537565',
           street: 'Bucarest',
           number: '034',
           district: 'Providencia',
           city: 'Santiago',
-          state: 'Región Metropolitana de Santiago',
+          state: 'RM',
           country: 'CL',
           postalCode: '7510050',
         },
         destination: {
           name: 'Cliente',
+          district: destCity,
+          city: destCity,
+          state: destState,
           country: 'CL',
           postalCode: postal,
         },
@@ -99,30 +101,21 @@ app.get('/api/shipping-rate', async (req, res) => {
           weight: weightKg,
           weightUnit: 'KG',
         }],
-        shipment: { type: 1 },
+        shipment: { carrier: 'STARKEN', type: 1 },
       }),
     });
 
     const data = await enviaRes.json();
-    console.log('Envia rate response:', JSON.stringify(data).substring(0, 600));
+    console.log('Envia rate response:', JSON.stringify(data).substring(0, 400));
 
-    const rates = Array.isArray(data.data) ? data.data
-      : Array.isArray(data.rates) ? data.rates
-      : Array.isArray(data.carriers) ? data.carriers
-      : [];
+    const rates = Array.isArray(data.data) ? data.data : [];
+    // Prefer home delivery (dropOff === 0) over branch pickup
+    const homeRates = rates.filter(r => r.dropOff === 0);
+    const pool = homeRates.length ? homeRates : rates;
+    if (!pool.length) return res.json({ fallback: true });
 
-    if (!rates.length) return res.json({ fallback: true });
-
-    const cheapest = rates.reduce((a, b) => {
-      const ap = a.totalPrice ?? a.price ?? a.amount ?? 0;
-      const bp = b.totalPrice ?? b.price ?? b.amount ?? 0;
-      return ap < bp ? a : b;
-    });
-
-    const price = cheapest.totalPrice ?? cheapest.price ?? cheapest.amount;
-    const days = cheapest.deliveryEstimate ?? cheapest.days ?? cheapest.estimated_days ?? null;
-
-    const result = { price: Math.round(price), days };
+    const cheapest = pool.reduce((a, b) => (a.totalPrice < b.totalPrice ? a : b));
+    const result = { price: Math.round(cheapest.totalPrice), days: cheapest.deliveryEstimate || null };
     setCached(cacheKey, result, 60 * 60 * 1000);
     res.json(result);
   } catch (e) {
