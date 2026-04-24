@@ -230,12 +230,15 @@ app.post('/webhook/orders/paid', async (req, res) => {
       const pinturaItems = (order.line_items || []).filter(item => pinturaIds.has(item.product_id));
 
       if (pinturaItems.length > 0) {
-        const lineItems = pinturaItems.map(item => ({
-          title: item.title,
-          image: item.image?.src || null,
-          price: parseFloat(item.price),
-          currency: order.currency || 'CLP',
-          description: null,
+        const lineItems = await Promise.all(pinturaItems.map(async item => {
+          const product = await shopify.getProductById(item.product_id);
+          return {
+            title: item.title,
+            image: product?.images?.[0]?.src || null,
+            price: parseFloat(item.price),
+            currency: order.currency || 'CLP',
+            description: null,
+          };
         }));
         const certHtml = certificateHTML(lineItems);
         const certPdf = await generatePDF(certHtml, { format: 'Letter', margin: { top: '20mm', right: '25mm', bottom: '20mm', left: '25mm' } });
