@@ -57,10 +57,11 @@ app.get('/api/geo', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress;
   try {
-    const r = await fetch(`https://ipwho.is/${ip}`);
+    const apiKey = process.env.IPGEO_API_KEY;
+    const r = await fetch(`https://api.ipgeolocation.io/ipgeo?apiKey=${apiKey}&ip=${ip}`);
     const d = await r.json();
-    if (!d || d.success === false || d.country_code !== 'CL') return res.json({ fallback: true });
-    res.json({ country_code: d.country_code, region: d.region, city: d.city, postal: d.postal, region_code: d.region_code });
+    if (!d || d.message || d.country_code2 !== 'CL') return res.json({ fallback: true, _debug_ip: ip, _debug_country: d?.country_code2, _debug_msg: d?.message });
+    res.json({ country_code: d.country_code2, region: d.state_prov, city: d.city, postal: d.zipcode, region_code: d.state_code });
   } catch (e) {
     res.json({ fallback: true });
   }
