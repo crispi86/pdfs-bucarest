@@ -52,6 +52,20 @@ app.use(express.urlencoded({ extended: true }));
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/', (req, res) => res.send('Bucarest PDF Generator — OK'));
 
+// ── Geo lookup (server-side, avoids browser CORS) ─────────────────────────────
+app.get('/api/geo', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress;
+  try {
+    const r = await fetch(`https://ipwho.is/${ip}`);
+    const d = await r.json();
+    if (!d || d.success === false || d.country_code !== 'CL') return res.json({ fallback: true });
+    res.json({ country_code: d.country_code, region: d.region, city: d.city, postal: d.postal, region_code: d.region_code });
+  } catch (e) {
+    res.json({ fallback: true });
+  }
+});
+
 // ── Shipping rate proxy → Envia API (Starken) ────────────────────────────────
 app.get('/api/shipping-rate', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
