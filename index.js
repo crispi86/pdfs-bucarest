@@ -75,7 +75,7 @@ app.get('/api/shipping-rate', async (req, res) => {
 
   const weightKg = Math.max(0.5, parseFloat(weight_g || '1000') / 1000);
   const destCity = city || 'Santiago';
-  const destState = rcode || '';
+  const destState = rcode || 'RM';
   const cacheKey = `rate_${postal}_${destCity}_${Math.round(weightKg * 10)}`;
   const cached = getCached(cacheKey);
   if (cached) return res.json(cached);
