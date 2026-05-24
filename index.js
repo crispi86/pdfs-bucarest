@@ -142,16 +142,22 @@ app.get('/api/shipping-rate', async (req, res) => {
 // ── International shipping rate proxy → Envia API (DHL Express) ──────────────
 app.get('/api/shipping-rate-intl', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  const { country, postal, weight_g, city } = req.query;
+  const { country, postal, weight_g, city, rcode } = req.query;
   if (!country || !postal) return res.json({ fallback: true });
 
   const weightKg = Math.max(0.5, parseFloat(weight_g || '1000') / 1000);
   const destCity = city || '';
-  const cacheKey = `intl_rate_${country.toUpperCase()}_${postal}_${Math.round(weightKg * 10)}`;
+  const countryUp = country.toUpperCase();
+  // rcode from ipgeolocation is e.g. "US-NY" — extract the part after the dash
+  const destState = rcode ? rcode.replace(/^[A-Z]+-/, '') : '';
+  const cacheKey = `intl_rate_${countryUp}_${postal}_${Math.round(weightKg * 10)}`;
   const cached = getCached(cacheKey);
   if (cached) return res.json(cached);
 
   try {
+    const destination = { name: 'Cliente', city: destCity, country: countryUp, postalCode: postal };
+    if (destState) destination.state = destState;
+
     const enviaRes = await fetch('https://api.envia.com/ship/rate/', {
       method: 'POST',
       headers: {
@@ -170,12 +176,7 @@ app.get('/api/shipping-rate-intl', async (req, res) => {
           country: 'CL',
           postalCode: '7510050',
         },
-        destination: {
-          name: 'Cliente',
-          city: destCity,
-          country: country.toUpperCase(),
-          postalCode: postal,
-        },
+        destination,
         packages: [{
           content: 'Arte y antigüedades',
           amount: 1,
