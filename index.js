@@ -195,7 +195,8 @@ app.get('/api/shipping-rate-intl', async (req, res) => {
     });
 
     const data = await enviaRes.json();
-    console.log('Envia intl rate response:', JSON.stringify(data).substring(0, 400));
+    console.log('Envia intl rate response:', JSON.stringify(data).substring(0, 600));
+    if (req.query._d) return res.json(data);
 
     const rates = Array.isArray(data.data) ? data.data : [];
     if (!rates.length) return res.json({ fallback: true });
