@@ -139,20 +139,7 @@ app.get('/api/shipping-rate', async (req, res) => {
   }
 });
 
-// ── Temp: list available Envia carriers ──────────────────────────────────────
-app.get('/api/envia-carriers', async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  try {
-    const r = await fetch('https://api.envia.com/ship/carrier/', {
-      headers: { 'Authorization': `Bearer ${process.env.ENVIA_API_TOKEN}` },
-    });
-    res.json(await r.json());
-  } catch (e) {
-    res.json({ error: e.message });
-  }
-});
-
-// ── International shipping rate proxy → Envia API (DHL Express) ──────────────
+// ── International shipping rate proxy → Envia API ────────────────────────────
 app.get('/api/shipping-rate-intl', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   const { country, postal, weight_g, city, rcode } = req.query;
@@ -199,14 +186,12 @@ app.get('/api/shipping-rate-intl', async (req, res) => {
           weight: weightKg,
           weightUnit: 'KG',
         }],
-        shipment: { carrier: req.query._carrier || 'DHLEXPRESS', type: 1 },
+        shipment: { carrier: 'DHLEXPRESS', type: 1 },
       }),
     });
 
     const data = await enviaRes.json();
-    console.log('Envia intl rate response:', JSON.stringify(data).substring(0, 600));
-
-    if (req.query.debug) return res.json(data);
+    console.log('Envia intl rate response:', JSON.stringify(data).substring(0, 400));
 
     const rates = Array.isArray(data.data) ? data.data : [];
     if (!rates.length) return res.json({ fallback: true });
