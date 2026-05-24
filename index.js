@@ -149,7 +149,11 @@ app.get('/api/shipping-rate-intl', async (req, res) => {
   const destCity = city || '';
   const countryUp = country.toUpperCase();
   // rcode from ipgeolocation is e.g. "US-NY" — extract the part after the dash
-  const destState = rcode ? rcode.replace(/^[A-Z]+-/, '') : '';
+  let destState = rcode ? rcode.replace(/^[A-Z]+-/, '') : '';
+  // DHL requires state for US/CA/AU — default if not provided
+  if (!destState && countryUp === 'US') destState = 'NY';
+  if (!destState && countryUp === 'CA') destState = 'ON';
+  if (!destState && countryUp === 'AU') destState = 'NSW';
   const cacheKey = `intl_rate_${countryUp}_${postal}_${Math.round(weightKg * 10)}`;
   const cached = getCached(cacheKey);
   if (cached) return res.json(cached);
