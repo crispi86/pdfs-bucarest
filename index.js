@@ -199,7 +199,7 @@ app.get('/api/shipping-rate-intl', async (req, res) => {
           weight: weightKg,
           weightUnit: 'KG',
         }],
-        shipment: { carrier: 'DHLEXPRESS', type: 1 },
+        shipment: { carrier: req.query._carrier || 'DHLEXPRESS', type: 1 },
       }),
     });
 
