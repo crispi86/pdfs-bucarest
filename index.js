@@ -139,6 +139,72 @@ app.get('/api/shipping-rate', async (req, res) => {
   }
 });
 
+// ── International shipping rate proxy → Envia API (DHL Express) ──────────────
+app.get('/api/shipping-rate-intl', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  const { country, postal, weight_g, city } = req.query;
+  if (!country || !postal) return res.json({ fallback: true });
+
+  const weightKg = Math.max(0.5, parseFloat(weight_g || '1000') / 1000);
+  const destCity = city || '';
+  const cacheKey = `intl_rate_${country.toUpperCase()}_${postal}_${Math.round(weightKg * 10)}`;
+  const cached = getCached(cacheKey);
+  if (cached) return res.json(cached);
+
+  try {
+    const enviaRes = await fetch('https://api.envia.com/ship/rate/', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.ENVIA_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(8000),
+      body: JSON.stringify({
+        origin: {
+          name: 'Bucarest Art & Antiques',
+          street: 'Bucarest',
+          number: '034',
+          district: 'Providencia',
+          city: 'Santiago',
+          state: 'RM',
+          country: 'CL',
+          postalCode: '7510050',
+        },
+        destination: {
+          name: 'Cliente',
+          city: destCity,
+          country: country.toUpperCase(),
+          postalCode: postal,
+        },
+        packages: [{
+          content: 'Arte y antigüedades',
+          amount: 1,
+          type: 'box',
+          dimensions: { length: 40, width: 40, height: 40 },
+          dimensionsUnit: 'CM',
+          weight: weightKg,
+          weightUnit: 'KG',
+        }],
+        shipment: { carrier: 'DHLEXPRESS', type: 1 },
+      }),
+    });
+
+    const data = await enviaRes.json();
+    console.log('Envia intl rate response:', JSON.stringify(data).substring(0, 400));
+
+    const rates = Array.isArray(data.data) ? data.data : [];
+    if (!rates.length) return res.json({ fallback: true });
+
+    const cheapest = rates.reduce((a, b) => (a.totalPrice < b.totalPrice ? a : b));
+    const result = { price: Math.round(cheapest.totalPrice), days: cheapest.deliveryEstimate || null };
+    setCached(cacheKey, result, 60 * 60 * 1000);
+    res.json(result);
+  } catch (e) {
+    console.error('Envia intl rate error:', e.message);
+    res.json({ fallback: true });
+  }
+});
+
 // ── OAuth: inicio ─────────────────────────────────────────────────────────────
 app.get('/shopify/auth', (req, res) => {
   const shop = req.query.shop || process.env.SHOPIFY_SHOP;
