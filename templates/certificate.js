@@ -47,7 +47,9 @@ function certificateHTML(lineItems) {
           </div>
           <div class="product-description">
             ${item.price ? `<p><strong>Precio:</strong> ${formatPrice(item.price, item.currency || 'CLP')}</p>` : ''}
-            ${item.description ? `<p><strong>Descripción:</strong> ${item.description}</p>` : ''}
+            ${item.metafields?.origen ? `<p><strong>Origen:</strong> ${item.metafields.origen}</p>` : ''}
+            ${(item.metafields?.alto || item.metafields?.ancho) ? `<p><strong>Dimensiones:</strong> ${[item.metafields.alto ? `Alto ${item.metafields.alto}` : null, item.metafields.ancho ? `Ancho ${item.metafields.ancho}` : null].filter(Boolean).join(' · ')}</p>` : ''}
+            ${item.description ? `<p style="margin-top:10px"><strong>Descripción:</strong> ${item.description}</p>` : ''}
           </div>
         </div>
       </div>

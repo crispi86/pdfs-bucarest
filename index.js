@@ -232,13 +232,17 @@ app.post('/webhook/orders/paid', async (req, res) => {
 
       if (pinturaItems.length > 0) {
         const lineItems = await Promise.all(pinturaItems.map(async item => {
-          const product = await shopify.getProductById(item.product_id);
+          const [product, metafields] = await Promise.all([
+            shopify.getProductById(item.product_id),
+            shopify.getProductMetafields(item.product_id),
+          ]);
           return {
             title: item.title,
             image: product?.images?.[0]?.src || null,
             price: parseFloat(item.price),
             currency: order.currency || 'CLP',
-            description: null,
+            description: product?.body_html ? product.body_html.replace(/<[^>]*>/g, '') : null,
+            metafields,
           };
         }));
         const certHtml = certificateHTML(lineItems);
