@@ -197,7 +197,7 @@ app.get('/api/shipping-rate-intl', async (req, res) => {
           weight: weightKg,
           weightUnit: 'KG',
         }],
-        shipment: { carrier: req.query._c || 'DHL', type: 1 },
+        shipment: { carrier: 'DHL', type: 1 },
       }),
     });
 
@@ -208,7 +208,20 @@ app.get('/api/shipping-rate-intl', async (req, res) => {
     if (!rates.length) return res.json({ fallback: true });
 
     const cheapest = rates.reduce((a, b) => (a.totalPrice < b.totalPrice ? a : b));
-    const result = { price: Math.round(cheapest.totalPrice), days: cheapest.deliveryEstimate || null };
+    const priceCLP = Math.round(cheapest.totalPrice);
+
+    // Fetch CLP→USD rate (cached 1h)
+    let priceUSD = null;
+    try {
+      const fxRate = await withCache('fx_clp_usd', 60 * 60 * 1000, async () => {
+        const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=CLP', { signal: AbortSignal.timeout(4000) });
+        const d = await r.json();
+        return d.rates && d.rates.CLP ? d.rates.CLP : null;
+      });
+      if (fxRate) priceUSD = Math.round(priceCLP / fxRate);
+    } catch (e) { /* skip — widget falls back to CLP */ }
+
+    const result = { price: priceCLP, ...(priceUSD ? { price_usd: priceUSD } : {}), days: cheapest.deliveryEstimate || null };
     setCached(cacheKey, result, 60 * 60 * 1000);
     res.json(result);
   } catch (e) {
