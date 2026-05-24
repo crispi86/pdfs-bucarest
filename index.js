@@ -155,7 +155,7 @@ app.get('/api/shipping-rate-intl', async (req, res) => {
   if (cached) return res.json(cached);
 
   try {
-    const destination = { name: 'Cliente', city: destCity, country: countryUp, postalCode: postal };
+    const destination = { name: 'Cliente', street: 'Main St', number: '1', city: destCity, country: countryUp, postalCode: postal };
     if (destState) destination.state = destState;
 
     const enviaRes = await fetch('https://api.envia.com/ship/rate/', {
@@ -186,7 +186,7 @@ app.get('/api/shipping-rate-intl', async (req, res) => {
           weight: weightKg,
           weightUnit: 'KG',
         }],
-        shipment: { carrier: req.query._c || 'DHLEXPRESS', ...(req.query._t ? { type: parseInt(req.query._t) } : {}) },
+        shipment: { carrier: req.query._c || 'DHL', type: 1 },
       }),
     });
 
