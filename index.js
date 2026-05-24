@@ -139,6 +139,19 @@ app.get('/api/shipping-rate', async (req, res) => {
   }
 });
 
+// ── Temp: list available Envia carriers ──────────────────────────────────────
+app.get('/api/envia-carriers', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  try {
+    const r = await fetch('https://api.envia.com/ship/carrier/', {
+      headers: { 'Authorization': `Bearer ${process.env.ENVIA_API_TOKEN}` },
+    });
+    res.json(await r.json());
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
+
 // ── International shipping rate proxy → Envia API (DHL Express) ──────────────
 app.get('/api/shipping-rate-intl', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
