@@ -150,10 +150,17 @@ app.get('/api/shipping-rate-intl', async (req, res) => {
   const countryUp = country.toUpperCase();
   // rcode from ipgeolocation is e.g. "US-NY" — extract the part after the dash
   let destState = rcode ? rcode.replace(/^[A-Z]+-/, '') : '';
-  // DHL requires state for US/CA/AU — default if not provided
-  if (!destState && countryUp === 'US') destState = 'NY';
-  if (!destState && countryUp === 'CA') destState = 'ON';
-  if (!destState && countryUp === 'AU') destState = 'NSW';
+  // DHL requires state for many countries — default if not provided
+  if (!destState) {
+    const stateDefaults = {
+      US:'NY', CA:'ON', AU:'NSW', DE:'BE', FR:'IDF', ES:'MD', IT:'RM',
+      GB:'ENG', NL:'NH', BE:'BRU', CH:'ZH', AT:'9', PT:'11', SE:'AB',
+      NO:'03', DK:'84', FI:'18', PL:'14', IE:'L', MX:'CMX', BR:'SP',
+      AR:'C', CO:'DC', PE:'LIM', CL:'RM', JP:'13', KR:'11', IN:'MH',
+      ZA:'GT', NZ:'AUK',
+    };
+    destState = stateDefaults[countryUp] || '';
+  }
   const cacheKey = `intl_rate_${countryUp}_${postal}_${Math.round(weightKg * 10)}`;
   const cached = getCached(cacheKey);
   if (cached) return res.json(cached);
@@ -195,8 +202,7 @@ app.get('/api/shipping-rate-intl', async (req, res) => {
     });
 
     const data = await enviaRes.json();
-    console.log('Envia intl rate response:', JSON.stringify(data).substring(0, 600));
-    if (req.query._d) return res.json(data);
+    console.log('Envia intl rate response:', JSON.stringify(data).substring(0, 400));
 
     const rates = Array.isArray(data.data) ? data.data : [];
     if (!rates.length) return res.json({ fallback: true });
