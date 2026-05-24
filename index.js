@@ -214,9 +214,9 @@ app.get('/api/shipping-rate-intl', async (req, res) => {
     let priceUSD = null;
     try {
       const fxRate = await withCache('fx_clp_usd', 60 * 60 * 1000, async () => {
-        const r = await fetch('https://api.frankfurter.app/latest?from=USD&to=CLP', { signal: AbortSignal.timeout(4000) });
+        const r = await fetch('https://open.er-api.com/v6/latest/USD', { signal: AbortSignal.timeout(4000) });
         const d = await r.json();
-        return d.rates && d.rates.CLP ? d.rates.CLP : null;
+        return d.result === 'success' && d.rates && d.rates.CLP ? d.rates.CLP : null;
       });
       if (fxRate) priceUSD = Math.round(priceCLP / fxRate);
     } catch (e) { /* skip — widget falls back to CLP */ }
