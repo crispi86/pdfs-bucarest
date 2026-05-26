@@ -142,94 +142,108 @@ app.get('/api/shipping-rate', async (req, res) => {
   }
 });
 
-// ── International shipping rate via Envia.com DHL ────────────────────────────
+// ── International shipping rate via Shopify DHL (draftOrderCalculate) ────────
 app.get('/api/shipping-rate-intl', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  const { country, postal, weight_g, city, rcode } = req.query;
-  if (!country || !postal) return res.json({ fallback: true });
+  const { country, postal, city, rcode, variant_id } = req.query;
+  if (!country || !postal || !variant_id) return res.json({ fallback: true });
 
-  const weightKg = Math.max(0.5, parseFloat(weight_g || '1000') / 1000);
-  const destCity = city || '';
   const countryUp = country.toUpperCase();
-  let destState = rcode ? rcode.replace(/^[A-Z]+-/, '') : '';
-  if (!destState) {
-    const stateDefaults = {
-      US:'NY', CA:'ON', AU:'NSW', DE:'BE', FR:'IDF', ES:'MD', IT:'RM',
-      GB:'ENG', NL:'NH', BE:'BRU', CH:'ZH', AT:'9', PT:'11', SE:'AB',
-      NO:'03', DK:'84', FI:'18', PL:'14', IE:'L', MX:'CMX', BR:'SP',
-      AR:'C', CO:'DC', PE:'LIM', CL:'RM', JP:'13', KR:'11', IN:'MH',
-      ZA:'GT', NZ:'AUK',
-    };
-    destState = stateDefaults[countryUp] || '';
-  }
-  const cacheKey = `intl_rate_${countryUp}_${postal}_${Math.round(weightKg * 10)}`;
+  const cacheKey = `intl_dhl_${countryUp}_${postal}_${variant_id}`;
   const cached = getCached(cacheKey);
   if (cached) return res.json(cached);
 
+  let province = rcode ? rcode.replace(/^[A-Z]+-/, '') : '';
+  if (!province) {
+    const defaults = {
+      US:'NY', CA:'ON', AU:'NSW', DE:'BE', FR:'IDF', ES:'MD', IT:'RM',
+      GB:'ENG', NL:'NH', BE:'BRU', CH:'ZH', AT:'9', PT:'11', SE:'AB',
+      NO:'03', DK:'84', FI:'18', PL:'14', IE:'L', MX:'CMX', BR:'SP',
+      AR:'C', CO:'DC', PE:'LIM', JP:'13', KR:'11', IN:'MH', ZA:'GT', NZ:'AUK',
+    };
+    province = defaults[countryUp] || '';
+  }
+
   try {
-    const destination = { name: 'Cliente', street: 'Main St', number: '1', city: destCity, country: countryUp, postalCode: postal };
-    if (destState) destination.state = destState;
+    const shippingAddress = {
+      address1: '1 Main St',
+      city: city || 'City',
+      countryCode: countryUp,
+      zip: postal,
+      firstName: 'Cliente',
+      lastName: 'Bucarest',
+    };
+    if (province) shippingAddress.province = province;
 
-    const enviaRes = await fetch('https://api.envia.com/ship/rate/', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.ENVIA_API_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      signal: AbortSignal.timeout(8000),
-      body: JSON.stringify({
-        origin: {
-          name: 'Bucarest Art & Antiques',
-          street: 'Bucarest',
-          number: '034',
-          district: 'Providencia',
-          city: 'Santiago',
-          state: 'RM',
-          country: 'CL',
-          postalCode: '7510050',
+    const mutation = `
+      mutation draftOrderCalculate($input: DraftOrderInput!) {
+        draftOrderCalculate(input: $input) {
+          calculatedDraftOrder {
+            availableShippingRates {
+              handle title price { amount currencyCode }
+            }
+          }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    const shopifyRes = await fetch(
+      `https://${process.env.SHOPIFY_SHOP}/admin/api/2025-01/graphql.json`,
+      {
+        method: 'POST',
+        headers: {
+          'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN,
+          'Content-Type': 'application/json',
         },
-        destination,
-        packages: [{
-          content: 'Arte y antigüedades',
-          amount: 1,
-          type: 'box',
-          dimensions: { length: 40, width: 40, height: 40 },
-          dimensionsUnit: 'CM',
-          weight: weightKg,
-          weightUnit: 'KG',
-        }],
-        shipment: { carrier: 'DHL', type: 1 },
-      }),
-    });
+        signal: AbortSignal.timeout(12000),
+        body: JSON.stringify({
+          query: mutation,
+          variables: {
+            input: {
+              lineItems: [{ variantId: `gid://shopify/ProductVariant/${variant_id}`, quantity: 1 }],
+              shippingAddress,
+            },
+          },
+        }),
+      }
+    );
 
-    const data = await enviaRes.json();
-    console.log('Envia intl rate response:', JSON.stringify(data).substring(0, 400));
+    const json = await shopifyRes.json();
+    console.log('DHL intl rate response:', JSON.stringify(json).substring(0, 500));
 
-    const rates = Array.isArray(data.data) ? data.data : [];
+    const errs = json?.data?.draftOrderCalculate?.userErrors;
+    if (errs?.length) console.warn('DHL userErrors:', JSON.stringify(errs));
+
+    const rates = json?.data?.draftOrderCalculate?.calculatedDraftOrder?.availableShippingRates || [];
     if (!rates.length) return res.json({ fallback: true });
 
-    const cheapest = rates.reduce((a, b) => (a.totalPrice < b.totalPrice ? a : b));
-    const priceCLP = Math.round(cheapest.totalPrice);
+    const cheapest = rates.reduce((a, b) =>
+      parseFloat(a.price.amount) <= parseFloat(b.price.amount) ? a : b
+    );
 
+    const rawPrice = parseFloat(cheapest.price.amount);
+    const currency = cheapest.price.currencyCode;
+    let priceCLP = Math.round(rawPrice);
     let priceUSD = null;
+
     try {
       const fxRate = await withCache('fx_clp_usd', 60 * 60 * 1000, async () => {
         const r = await fetch('https://open.er-api.com/v6/latest/USD', { signal: AbortSignal.timeout(4000) });
         const d = await r.json();
         return d.result === 'success' && d.rates?.CLP ? d.rates.CLP : null;
       });
-      if (fxRate) priceUSD = Math.round(priceCLP / fxRate);
+      if (fxRate) {
+        if (currency === 'USD') { priceUSD = Math.round(rawPrice); priceCLP = Math.round(rawPrice * fxRate); }
+        else { priceUSD = Math.round(priceCLP / fxRate); }
+      }
     } catch (e) { /* skip */ }
 
-    const result = {
-      price: priceCLP,
-      ...(priceUSD ? { price_usd: priceUSD } : {}),
-      days: cheapest.deliveryEstimate || null,
-    };
+    const result = { price: priceCLP, ...(priceUSD ? { price_usd: priceUSD } : {}), days: null };
     setCached(cacheKey, result, 60 * 60 * 1000);
     res.json(result);
   } catch (e) {
-    console.error('Envia intl rate error:', e.message);
+    console.error('DHL intl rate error:', e.message);
     res.json({ fallback: true });
   }
 });
