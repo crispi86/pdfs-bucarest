@@ -52,6 +52,28 @@ app.use(express.urlencoded({ extended: true }));
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/', (req, res) => res.send('Bucarest PDF Generator — OK'));
 
+app.get('/api/debug-token', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  try {
+    const r = await fetch(`https://${process.env.SHOPIFY_SHOP}/admin/api/2025-01/graphql.json`, {
+      method: 'POST',
+      headers: { 'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN, 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(8000),
+      body: JSON.stringify({ query: `{ shop { name } }` }),
+    });
+    const json = await r.json();
+    // Try draftOrderCalculate with minimal input to check scopes
+    const r2 = await fetch(`https://${process.env.SHOPIFY_SHOP}/admin/api/2025-01/graphql.json`, {
+      method: 'POST',
+      headers: { 'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN, 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(8000),
+      body: JSON.stringify({ query: `mutation { draftOrderCalculate(input: { lineItems: [{ variantId: "gid://shopify/ProductVariant/46493162701102", quantity: 1 }], shippingAddress: { address1: "1 Main St", city: "Los Angeles", countryCode: US, zip: "90001", province: "CA", firstName: "T", lastName: "T" } }) { calculatedDraftOrder { availableShippingRates { title price { amount } } } userErrors { message } } }` }),
+    });
+    const json2 = await r2.json();
+    res.json({ shop: json?.data?.shop?.name, httpStatus: r2.status, draftResult: json2 });
+  } catch(e) { res.json({ error: e.message }); }
+});
+
 // ── Geo lookup (server-side, avoids browser CORS) ─────────────────────────────
 app.get('/api/geo', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
