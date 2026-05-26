@@ -67,7 +67,43 @@ app.get('/api/geo', async (req, res) => {
   }
 });
 
-// ── Domestic shipping rate via Envia.com, with -50% handling fee discount applied ──
+// ── Read Chilean shipping discount from Shopify delivery profiles (cached 1h) ──
+async function getChileanShippingDiscount() {
+  return withCache('cl_shipping_discount', 60 * 60 * 1000, async () => {
+    try {
+      const r = await fetch(`https://${process.env.SHOPIFY_SHOP}/admin/api/2025-01/graphql.json`, {
+        method: 'POST',
+        headers: { 'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN, 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(5000),
+        body: JSON.stringify({ query: `{
+          deliveryProfiles(first: 5) { edges { node { profileLocationGroups {
+            locationGroupZones(first: 20) { edges { node {
+              zone { countries { code { countryCode } } }
+              methodDefinitions(first: 5) { edges { node { rateProvider {
+                ... on DeliveryParticipant { percentageOfRateFee }
+              } } } }
+            } } }
+          } } } }
+        }` }),
+      });
+      const json = await r.json();
+      for (const { node: profile } of (json?.data?.deliveryProfiles?.edges || [])) {
+        for (const group of profile.profileLocationGroups) {
+          for (const { node: z } of group.locationGroupZones.edges) {
+            if (!z.zone.countries.some(c => c.code.countryCode === 'CL')) continue;
+            for (const { node: m } of z.methodDefinitions.edges) {
+              const pct = m.rateProvider?.percentageOfRateFee;
+              if (typeof pct === 'number' && pct !== 0) return pct;
+            }
+          }
+        }
+      }
+    } catch (e) { console.warn('Could not fetch CL shipping discount:', e.message); }
+    return -50; // fallback if Shopify unreachable
+  });
+}
+
+// ── Domestic shipping rate via Envia.com, discount read from Shopify zones ──
 app.get('/api/shipping-rate', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   const { postal, weight_g, city, rcode } = req.query;
@@ -131,8 +167,9 @@ app.get('/api/shipping-rate', async (req, res) => {
     if (!pool.length) return res.json({ fallback: true });
 
     const cheapest = pool.reduce((a, b) => (a.totalPrice < b.totalPrice ? a : b));
-    // Apply the -50% handling fee discount configured in Shopify shipping zones for all Chilean zones
-    const discountedPrice = Math.round(cheapest.totalPrice * 0.5);
+    const discountPct = await getChileanShippingDiscount(); // e.g. -50
+    const multiplier = 1 + (discountPct / 100); // e.g. 0.5
+    const discountedPrice = Math.round(cheapest.totalPrice * multiplier);
     const result = { price: discountedPrice, days: cheapest.deliveryEstimate || null };
     setCached(cacheKey, result, 60 * 60 * 1000);
     res.json(result);
