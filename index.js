@@ -137,7 +137,11 @@ app.get('/api/shipping-rate', async (req, res) => {
       parseFloat(a.price.amount) <= parseFloat(b.price.amount) ? a : b
     );
 
-    const result = { price: Math.round(parseFloat(cheapest.price.amount)), days: null };
+    // All Chilean domestic zones have -50% handling fee configured in Shopify shipping zones.
+    // draftOrderCalculate returns raw carrier rates without applying that discount, so we apply it here.
+    const rawPrice = parseFloat(cheapest.price.amount);
+    const discountedPrice = rawPrice === 0 ? 0 : Math.round(rawPrice * 0.5);
+    const result = { price: discountedPrice, days: null };
     setCached(cacheKey, result, 60 * 60 * 1000);
     res.json(result);
   } catch (e) {
