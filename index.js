@@ -50,7 +50,29 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ── Health check ──────────────────────────────────────────────────────────────
-app.get('/', (req, res) => res.send('Bucarest PDF Generator — OK'));
+app.get('/', (req, res) => res.send('Bucarest PDF Generator — OK v2'));
+
+// ── Debug: test Envia.com connectivity ───────────────────────────────────────
+app.get('/api/debug-envia', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  try {
+    const enviaRes = await fetch('https://api.envia.com/ship/rate/', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${process.env.ENVIA_API_TOKEN}`, 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(8000),
+      body: JSON.stringify({
+        origin: { name:'Bucarest', street:'Bucarest', number:'034', district:'Providencia', city:'Santiago', state:'RM', country:'CL', postalCode:'7510050' },
+        destination: { name:'Cliente', district:'Concepción', city:'Concepción', state:'CL-BI', country:'CL', postalCode:'4030000' },
+        packages: [{ content:'Arte', amount:1, type:'box', dimensions:{length:40,width:40,height:40}, dimensionsUnit:'CM', weight:5, weightUnit:'KG' }],
+        shipment: { carrier:'STARKEN', type:1 },
+      }),
+    });
+    const data = await enviaRes.json();
+    res.json({ status: enviaRes.status, tokenPresent: !!process.env.ENVIA_API_TOKEN, data });
+  } catch(e) {
+    res.json({ error: e.message, tokenPresent: !!process.env.ENVIA_API_TOKEN });
+  }
+});
 
 // ── Geo lookup (server-side, avoids browser CORS) ─────────────────────────────
 app.get('/api/geo', async (req, res) => {
