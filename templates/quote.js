@@ -69,18 +69,16 @@ function quoteHTML(products, options = {}) {
 
   // ── Layout 3: tabla compacta ──────────────────────────────────────────────────
   function renderRow({ p, price, currency, image, sku, productUrl }) {
-    const titleEl = productUrl
-      ? `<a href="${productUrl}" class="q-title-link" target="_blank"><strong>${p.title}</strong></a>`
-      : `<strong>${p.title}</strong>`;
     return `
       <tr>
         <td class="q-td q-td--img">
           ${image ? `<img src="${image}" alt="${p.title}" class="q-product-img">` : ''}
         </td>
         <td class="q-td">
-          ${titleEl}
+          <strong>${p.title}</strong>
           ${showSku && sku ? `<div class="q-sku">SKU: ${sku}</div>` : ''}
           ${showDescription && p.body_html ? `<div class="q-desc">${p.body_html}</div>` : ''}
+          ${productUrl ? `<a href="${productUrl}" class="q-btn-link" target="_blank">Ver en tienda →</a>` : ''}
         </td>
         <td class="q-td q-td--price">${price > 0 ? formatPrice(price, currency) : '—'}<br><span class="iva-tag">IVA incluido</span></td>
       </tr>`;
@@ -162,12 +160,13 @@ function quoteHTML(products, options = {}) {
     .pc-img-wrap { flex: 0 0 42%; overflow: hidden; }
     .pc-img { width: 100%; height: 100%; object-fit: cover; }
     .pc-img-placeholder { flex: 0 0 42%; background: #f5f3f0; }
-    .pc-body { flex: 1; padding: 28px 32px; display: flex; flex-direction: column; }
+    .pc-body { flex: 1; padding: 28px 32px; display: flex; flex-direction: column; justify-content: center; }
     .pc-title { font-size: 17px; font-weight: 500; color: #1a1a1a; margin-bottom: 8px; line-height: 1.3; }
-    .pc-desc { font-size: 13px; color: #777; line-height: 1.6; margin: 8px 0; flex: 1; }
+    .pc-desc { font-size: 13px; color: #777; line-height: 1.6; margin: 8px 0; }
     .pc-desc p { margin: 0; }
     .pc-price { font-size: 20px; font-weight: 600; color: #1a1a1a; margin-top: 20px; border-top: 1px solid #e8e2d9; padding-top: 14px; }
-    .pc-link { display: inline-block; margin-top: 12px; font-size: 11px; color: #9a7f5a !important; text-decoration: none; letter-spacing: 0.06em; text-transform: uppercase; }
+    .pc-link { display: inline-block; margin-top: 14px; padding: 11px 22px; background: #1a1a1a; color: #fff !important; text-decoration: none; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
+    .q-btn-link { display: inline-block; margin-top: 8px; padding: 8px 16px; background: #1a1a1a; color: #fff !important; text-decoration: none; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; }
 
     /* ── Layout 3: tabla compacta ────────────────────────────────────────────── */
     table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
