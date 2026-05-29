@@ -157,8 +157,8 @@ function quoteHTML(products, options = {}) {
     /* ── Layout 2: dos filas, imagen izquierda + texto derecha ──────────────── */
     .pc-grid { display: flex; flex-direction: column; gap: 16px; }
     .pc-card { display: flex; flex-direction: row; min-height: 430px; border: 1px solid #e8e2d9; }
-    .pc-img-wrap { flex: 0 0 42%; overflow: hidden; }
-    .pc-img { width: 100%; height: 100%; object-fit: cover; }
+    .pc-img-wrap { flex: 0 0 42%; display: flex; align-items: center; justify-content: center; background: #faf9f7; padding: 20px; }
+    .pc-img { max-width: 100%; max-height: 390px; object-fit: contain; }
     .pc-img-placeholder { flex: 0 0 42%; background: #f5f3f0; }
     .pc-body { flex: 1; padding: 28px 32px; display: flex; flex-direction: column; justify-content: center; }
     .pc-title { font-size: 17px; font-weight: 500; color: #1a1a1a; margin-bottom: 8px; line-height: 1.3; }
