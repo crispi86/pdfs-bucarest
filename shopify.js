@@ -94,15 +94,15 @@ async function getOrder(orderId) {
 }
 
 async function getProductsByCollection(collectionId) {
-  return getAllPages(`products.json?collection_id=${collectionId}&fields=id,title,images,variants,body_html,status`, 'products');
+  return getAllPages(`products.json?collection_id=${collectionId}&fields=id,title,handle,images,variants,body_html,status`, 'products');
 }
 
 async function getProductsByTag(tag) {
-  return getAllPages(`products.json?tag=${encodeURIComponent(tag)}&fields=id,title,images,body_html,variants,status`, 'products');
+  return getAllPages(`products.json?tag=${encodeURIComponent(tag)}&fields=id,title,handle,images,body_html,variants,status`, 'products');
 }
 
 async function getProductsByTitle(keyword) {
-  const all = await getAllPages(`products.json?fields=id,title,images,body_html,variants,status`, 'products');
+  const all = await getAllPages(`products.json?fields=id,title,handle,images,body_html,variants,status`, 'products');
   const lower = keyword.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   return all.filter(p => {
     const t = (p.title || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');

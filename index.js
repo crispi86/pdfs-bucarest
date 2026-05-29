@@ -573,7 +573,7 @@ app.post('/generate/catalog', async (req, res) => {
 // ── Generar cotización ────────────────────────────────────────────────────────
 app.post('/generate/quote', async (req, res) => {
   try {
-    const { product_ids, client_name, client_email, client_rut, client_company, client_razon_social, client_direccion, valid_days, notes, send_email, price_overrides } = req.body;
+    const { product_ids, client_name, client_email, client_rut, client_company, client_razon_social, client_direccion, valid_days, notes, send_email, price_overrides, products_per_page, show_links, show_description, show_sku } = req.body;
     const ids = Array.isArray(product_ids) ? product_ids : [product_ids];
 
     const products = await Promise.all(ids.map(async id => {
@@ -586,6 +586,10 @@ app.post('/generate/quote', async (req, res) => {
       clientRut: client_rut, clientCompany: client_company,
       clientRazonSocial: client_razon_social, clientDireccion: client_direccion,
       validDays: valid_days || 7, notes,
+      productsPerPage: products_per_page || 3,
+      showLinks: show_links === true || show_links === 'true',
+      showDescription: show_description !== false && show_description !== 'false',
+      showSku: show_sku === true || show_sku === 'true',
     });
     const pdf = await generatePDF(html);
     const filename = `Cotizacion_${(client_name || 'Bucarest').replace(/\s/g, '_')}.pdf`;
@@ -758,6 +762,10 @@ function adminUI(host) {
     .texture-thumb.selected{border-color:#9a7f5a;box-shadow:0 0 0 2px #9a7f5a33}
     .automation-notice{background:#faf8f5;border-left:3px solid #9a7f5a;padding:10px 14px;font-size:13px;color:#555;line-height:1.4;margin-bottom:20px}
     .automation-notice strong{color:#1a1a1a;margin-right:4px}
+    .ppp-btn{padding:8px 16px;border:1px solid #ddd6cc;background:#fff;font-size:12px;cursor:pointer;font-family:inherit;letter-spacing:0.06em;text-transform:uppercase;transition:all 0.15s;color:#666}
+    .ppp-btn.active{border-color:#9a7f5a;background:#faf8f5;color:#9a7f5a;font-weight:500}
+    .avail-btn{padding:4px 12px;border:1px solid #ddd6cc;background:#fff;font-size:11px;cursor:pointer;font-family:inherit;letter-spacing:0.06em;text-transform:uppercase;border-radius:12px;color:#666;transition:all 0.15s}
+    .avail-btn.active{border-color:#9a7f5a;background:#faf8f5;color:#9a7f5a}
   </style>
 </head>
 <body>
@@ -962,15 +970,37 @@ function adminUI(host) {
       </div>
       <div class="loading" id="quote-loading">Cargando productos…</div>
       <div class="status-filter" id="quote-status-filter" style="display:none;margin-top:12px">
-        <button class="status-btn active" onclick="filterByStatus('quote','all',this)">Todos</button>
-        <button class="status-btn" onclick="filterByStatus('quote','active',this)">Activos</button>
-        <button class="status-btn" onclick="filterByStatus('quote','draft',this)">Borrador</button>
+        <button class="status-btn active" data-status="all" onclick="filterByStatus('quote','all',this)">Todos</button>
+        <button class="status-btn" data-status="active" onclick="filterByStatus('quote','active',this)">Activos</button>
+        <button class="status-btn" data-status="draft" onclick="filterByStatus('quote','draft',this)">Borrador</button>
+      </div>
+      <div class="status-filter" id="quote-avail-filter" style="display:none;margin-top:6px">
+        <button class="avail-btn active" data-avail="all" onclick="filterByAvailability('quote','all',this)">Todo stock</button>
+        <button class="avail-btn" data-avail="available" onclick="filterByAvailability('quote','available',this)">Con stock</button>
+        <button class="avail-btn" data-avail="unavailable" onclick="filterByAvailability('quote','unavailable',this)">Sin stock</button>
       </div>
       <div class="product-list" id="quote-products"></div>
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div class="selected-count" id="quote-count"></div>
         <button class="select-all-btn" id="quote-select-all" onclick="toggleSelectAll('quote')" style="display:none">Seleccionar todos</button>
       </div>
+    </div>
+
+    <div class="card">
+      <span class="section-label">Presentación del PDF</span>
+      <div style="margin-bottom:16px">
+        <label style="margin-bottom:8px;display:block">Productos por página</label>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button class="ppp-btn" data-ppp="1" onclick="setPPP(this,1)">1 — Ampliado</button>
+          <button class="ppp-btn" data-ppp="2" onclick="setPPP(this,2)">2 — Estándar</button>
+          <button class="ppp-btn active" data-ppp="3" onclick="setPPP(this,3)">3 — Compacto</button>
+        </div>
+        <p style="font-size:12px;color:#999;margin-top:8px">Ampliado: imagen grande, ideal para piezas destacadas. Compacto: lista eficiente para muchos productos.</p>
+        <input type="hidden" id="quote-ppp" value="3">
+      </div>
+      <div class="checkbox-row"><input type="checkbox" id="quote-show-links"><label for="quote-show-links" style="text-transform:none;letter-spacing:0;font-size:13px">Incluir enlace clickeable a la tienda en cada producto</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="quote-show-desc" checked><label for="quote-show-desc" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar descripción del producto</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="quote-show-sku"><label for="quote-show-sku" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar SKU</label></div>
     </div>
 
     <div class="btn-row">
@@ -1087,6 +1117,32 @@ async function loadProducts(prefix) {
 
 const productCache = {};
 
+function totalInventory(p) {
+  return (p.variants || []).reduce((s, v) => s + (parseInt(v.inventory_quantity) || 0), 0);
+}
+
+function filterByAvailability(prefix, avail, el) {
+  document.querySelectorAll('#' + prefix + '-avail-filter .avail-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const activeStatusEl = document.querySelector('#' + prefix + '-status-filter .status-btn.active');
+  const status = activeStatusEl?.dataset?.status || 'all';
+  renderProductsFiltered(prefix, productCache[prefix] || [], status, avail);
+}
+
+function renderProductsFiltered(prefix, allProducts, statusFilter, availFilter) {
+  let products = allProducts;
+  if (statusFilter && statusFilter !== 'all') products = products.filter(p => p.status === statusFilter);
+  if (availFilter === 'available') products = products.filter(p => totalInventory(p) > 0);
+  if (availFilter === 'unavailable') products = products.filter(p => totalInventory(p) === 0);
+  renderRows(prefix, products);
+}
+
+function setPPP(el, val) {
+  document.querySelectorAll('.ppp-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('quote-ppp').value = val;
+}
+
 function statusBadge(status) {
   const map = { active: ['Activo','status-active'], draft: ['Borrador','status-draft'], archived: ['Archivado','status-archived'] };
   const [label, cls] = map[status] || ['—','status-draft'];
@@ -1095,10 +1151,17 @@ function statusBadge(status) {
 
 function renderProducts(prefix, products, filter) {
   productCache[prefix] = products;
-  const statusFilter = document.getElementById(prefix + '-status-filter');
-  if (statusFilter) statusFilter.style.display = products.length ? 'flex' : 'none';
+  const statusFilterEl = document.getElementById(prefix + '-status-filter');
+  if (statusFilterEl) statusFilterEl.style.display = products.length ? 'flex' : 'none';
+  const availFilterEl = document.getElementById(prefix + '-avail-filter');
+  if (availFilterEl) availFilterEl.style.display = products.length ? 'flex' : 'none';
 
-  const filtered = filter && filter !== 'all' ? products.filter(p => p.status === filter) : products;
+  const activeAvailEl = document.querySelector('#' + prefix + '-avail-filter .avail-btn.active');
+  const avail = activeAvailEl?.dataset?.avail || 'all';
+  renderProductsFiltered(prefix, products, filter || 'all', avail);
+}
+
+function renderRows(prefix, filtered) {
   const list = document.getElementById(prefix + '-products');
   const count = document.getElementById(prefix + '-count');
 
@@ -1115,7 +1178,7 @@ function renderProducts(prefix, products, filter) {
       <th>Título</th>
       <th class="col-sku">SKU</th>
       <th class="col-price">Precio</th>
-      <th class="col-status">Disponible</th>
+      <th class="col-status">Stock</th>
       <th class="col-status">Estado</th>
     </tr></thead>
     <tbody>
@@ -1123,7 +1186,8 @@ function renderProducts(prefix, products, filter) {
         const sku = p.variants && p.variants[0] && p.variants[0].sku ? p.variants[0].sku : '—';
         const rawPrice = p.variants && p.variants[0] ? p.variants[0].price : '';
         const displayPrice = rawPrice ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(parseFloat(rawPrice)) : '—';
-        const inventory = (p.variants || []).reduce((sum, v) => sum + (parseInt(v.inventory_quantity) || 0), 0);
+        const inventory = totalInventory(p);
+        const stockColor = inventory > 0 ? '#2d6a2d' : '#c0392b';
         return \`<tr onclick="toggleRow(this)">
           <td class="col-check"><input type="checkbox" name="\${prefix}_product" value="\${p.id}" onchange="updateCount('\${prefix}');event.stopPropagation()"></td>
           <td>\${p.title}</td>
@@ -1132,7 +1196,7 @@ function renderProducts(prefix, products, filter) {
             <div class="price-row"><span class="price-lbl">Precio</span><span class="price-display">\${displayPrice}</span></div>
             <div class="price-row"><span class="price-lbl">Editar</span><input type="number" class="price-override" data-id="\${p.id}" data-prefix="\${prefix}" value="\${rawPrice}" placeholder="Personalizado"></div>
           </td>
-          <td style="font-size:13px;color:#555;text-align:center">\${inventory}</td>
+          <td style="font-size:13px;color:\${stockColor};text-align:center;font-weight:500">\${inventory}</td>
           <td>\${statusBadge(p.status)}</td>
         </tr>\`;
       }).join('')}
@@ -1153,7 +1217,10 @@ function toggleRow(tr) {
 function filterByStatus(prefix, status, el) {
   document.querySelectorAll('#' + prefix + '-status-filter .status-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
-  renderProducts(prefix, productCache[prefix] || [], status);
+  el.dataset.status = status;
+  const activeAvailEl = document.querySelector('#' + prefix + '-avail-filter .avail-btn.active');
+  const avail = activeAvailEl?.dataset?.avail || 'all';
+  renderProductsFiltered(prefix, productCache[prefix] || [], status, avail);
 }
 
 function toggleSelectAll(prefix) {
@@ -1234,6 +1301,10 @@ async function generate(type, sendEmail = false) {
       body.valid_days = document.getElementById('quote-days').value;
       body.notes = document.getElementById('quote-notes').value;
       body.send_email = sendEmail;
+      body.products_per_page = parseInt(document.getElementById('quote-ppp').value) || 3;
+      body.show_links = document.getElementById('quote-show-links').checked;
+      body.show_description = document.getElementById('quote-show-desc').checked;
+      body.show_sku = document.getElementById('quote-show-sku').checked;
       const quoteOverrides = {};
       document.querySelectorAll('.price-override[data-prefix="quote"]').forEach(input => {
         if (input.value) quoteOverrides[input.dataset.id] = input.value;
