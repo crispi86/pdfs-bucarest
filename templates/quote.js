@@ -143,30 +143,30 @@ function quoteHTML(products, options = {}) {
     /* ── Layout 1/2: page break on intro ─────────────────────────────────────── */
     .layout-1 .q-intro, .layout-2 .q-intro { page-break-after: always; }
 
-    /* ── Layout 1: producto a página completa ────────────────────────────────── */
-    .pf-product { display: flex; gap: 40px; min-height: 500px; align-items: flex-start; padding: 20px 0 40px; }
-    .pf-img-wrap { flex: 0 0 44%; }
-    .pf-img { width: 100%; max-height: 480px; object-fit: contain; border: 1px solid #e8e2d9; }
-    .pf-img-placeholder { flex: 0 0 44%; height: 400px; background: #f5f3f0; }
-    .pf-detail { flex: 1; padding-top: 8px; }
+    /* ── Layout 1: imagen arriba centrada, texto abajo ──────────────────────── */
+    .pf-product { display: flex; flex-direction: column; min-height: 930px; }
+    .pf-img-wrap { flex: 0 0 530px; display: flex; align-items: center; justify-content: center; padding: 20px; background: #faf9f7; }
+    .pf-img { max-width: 88%; max-height: 490px; object-fit: contain; }
+    .pf-img-placeholder { flex: 0 0 530px; background: #f5f3f0; }
+    .pf-detail { flex: 1; padding: 28px 0 20px; border-top: 2px solid #e8e2d9; }
     .pf-title { font-size: 22px; font-weight: 400; color: #1a1a1a; margin: 0 0 10px; line-height: 1.3; }
-    .pf-desc { font-size: 13px; color: #666; line-height: 1.7; margin: 14px 0; }
+    .pf-desc { font-size: 13px; color: #666; line-height: 1.7; margin: 12px 0; }
     .pf-desc p { margin: 0; }
-    .pf-price { font-size: 24px; font-weight: 600; color: #1a1a1a; margin: 24px 0 16px; border-top: 1px solid #e8e2d9; padding-top: 18px; }
+    .pf-price { font-size: 26px; font-weight: 600; color: #1a1a1a; margin: 20px 0 14px; }
     .pf-link { display: inline-block; padding: 11px 22px; background: #1a1a1a; color: #fff !important; text-decoration: none; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
 
-    /* ── Layout 2: dos columnas ──────────────────────────────────────────────── */
-    .pc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-    .pc-card { border: 1px solid #e8e2d9; display: flex; flex-direction: column; }
-    .pc-img-wrap { height: 240px; overflow: hidden; }
+    /* ── Layout 2: dos filas, imagen izquierda + texto derecha ──────────────── */
+    .pc-grid { display: flex; flex-direction: column; gap: 16px; }
+    .pc-card { display: flex; flex-direction: row; min-height: 430px; border: 1px solid #e8e2d9; }
+    .pc-img-wrap { flex: 0 0 42%; overflow: hidden; }
     .pc-img { width: 100%; height: 100%; object-fit: cover; }
-    .pc-img-placeholder { height: 240px; background: #f5f3f0; }
-    .pc-body { padding: 16px 18px; flex: 1; display: flex; flex-direction: column; }
-    .pc-title { font-size: 14px; font-weight: 600; color: #1a1a1a; margin-bottom: 6px; line-height: 1.3; }
-    .pc-desc { font-size: 12px; color: #888; line-height: 1.5; margin: 6px 0; flex: 1; }
+    .pc-img-placeholder { flex: 0 0 42%; background: #f5f3f0; }
+    .pc-body { flex: 1; padding: 28px 32px; display: flex; flex-direction: column; }
+    .pc-title { font-size: 17px; font-weight: 500; color: #1a1a1a; margin-bottom: 8px; line-height: 1.3; }
+    .pc-desc { font-size: 13px; color: #777; line-height: 1.6; margin: 8px 0; flex: 1; }
     .pc-desc p { margin: 0; }
-    .pc-price { font-size: 17px; font-weight: 600; color: #1a1a1a; margin-top: 14px; border-top: 1px solid #e8e2d9; padding-top: 10px; }
-    .pc-link { display: inline-block; margin-top: 10px; font-size: 11px; color: #9a7f5a !important; text-decoration: none; letter-spacing: 0.06em; text-transform: uppercase; }
+    .pc-price { font-size: 20px; font-weight: 600; color: #1a1a1a; margin-top: 20px; border-top: 1px solid #e8e2d9; padding-top: 14px; }
+    .pc-link { display: inline-block; margin-top: 12px; font-size: 11px; color: #9a7f5a !important; text-decoration: none; letter-spacing: 0.06em; text-transform: uppercase; }
 
     /* ── Layout 3: tabla compacta ────────────────────────────────────────────── */
     table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
