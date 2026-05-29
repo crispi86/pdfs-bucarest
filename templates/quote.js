@@ -44,8 +44,8 @@ function quoteHTML(products, options = {}) {
           <h2 class="pf-title">${p.title}</h2>
           ${showSku && sku ? `<div class="q-sku">SKU: ${sku}</div>` : ''}
           ${showDescription && p.body_html ? `<div class="pf-desc">${p.body_html}</div>` : ''}
-          <div class="pf-price">${price > 0 ? formatPrice(price, currency) : '—'}</div>
-          ${productUrl ? `<a href="${productUrl}" class="pf-link">Ver en tienda →</a>` : ''}
+          <div class="pf-price">${price > 0 ? formatPrice(price, currency) : '—'} <span class="iva-tag">IVA incluido</span></div>
+          ${productUrl ? `<a href="${productUrl}" class="pf-link" target="_blank">Ver en tienda →</a>` : ''}
         </div>
       </div>`;
   }
@@ -61,8 +61,8 @@ function quoteHTML(products, options = {}) {
           <div class="pc-title">${p.title}</div>
           ${showSku && sku ? `<div class="q-sku">SKU: ${sku}</div>` : ''}
           ${showDescription && p.body_html ? `<div class="pc-desc">${p.body_html}</div>` : ''}
-          <div class="pc-price">${price > 0 ? formatPrice(price, currency) : '—'}</div>
-          ${productUrl ? `<a href="${productUrl}" class="pc-link">Ver en tienda →</a>` : ''}
+          <div class="pc-price">${price > 0 ? formatPrice(price, currency) : '—'} <span class="iva-tag">IVA incluido</span></div>
+          ${productUrl ? `<a href="${productUrl}" class="pc-link" target="_blank">Ver en tienda →</a>` : ''}
         </div>
       </div>`;
   }
@@ -70,7 +70,7 @@ function quoteHTML(products, options = {}) {
   // ── Layout 3: tabla compacta ──────────────────────────────────────────────────
   function renderRow({ p, price, currency, image, sku, productUrl }) {
     const titleEl = productUrl
-      ? `<a href="${productUrl}" class="q-title-link"><strong>${p.title}</strong></a>`
+      ? `<a href="${productUrl}" class="q-title-link" target="_blank"><strong>${p.title}</strong></a>`
       : `<strong>${p.title}</strong>`;
     return `
       <tr>
@@ -82,7 +82,7 @@ function quoteHTML(products, options = {}) {
           ${showSku && sku ? `<div class="q-sku">SKU: ${sku}</div>` : ''}
           ${showDescription && p.body_html ? `<div class="q-desc">${p.body_html}</div>` : ''}
         </td>
-        <td class="q-td q-td--price">${price > 0 ? formatPrice(price, currency) : '—'}</td>
+        <td class="q-td q-td--price">${price > 0 ? formatPrice(price, currency) : '—'}<br><span class="iva-tag">IVA incluido</span></td>
       </tr>`;
   }
 
@@ -136,6 +136,7 @@ function quoteHTML(products, options = {}) {
 
     /* ── Shared ──────────────────────────────────────────────────────────────── */
     .q-sku { font-size: 11px; color: #bbb; margin-top: 3px; letter-spacing: 0.04em; }
+    .iva-tag { font-size: 11px; color: #bbb; font-weight: 400; vertical-align: middle; }
     .q-desc { font-size: 12px; color: #888; line-height: 1.5; margin-top: 4px; }
     .q-desc p { margin: 0; }
     .pb-page { page-break-after: always; }
