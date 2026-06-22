@@ -16,7 +16,13 @@ function formatPrice(amount, currency = 'CLP') {
 
 function certificateHTML(lineItems, options = {}) {
   const { dayName, dayNumber, monthName, year } = spanishDate();
-  const { folio, nominative } = options;
+  const { folio, nominative, expert } = options;
+
+  const experts = {
+    ricardo: { name: 'Ricardo Pizarro Pacheco', rut: '5.571.169-0' },
+    osvaldo: { name: 'Osvaldo Yañez Lara',      rut: '9.051.374-5' },
+  };
+  const expertData = experts[expert] || experts.ricardo;
 
   const pages = lineItems.map(item => {
     const addressee = nominative?.name
@@ -69,7 +75,7 @@ function certificateHTML(lineItems, options = {}) {
         </p>
         <div class="signature-area">
           <img src="https://cdn.shopify.com/s/files/1/0814/7671/4798/files/Timbre_Bucarest.png?v=1737570205" alt="Timbre Bucarest Art">
-          <p>Certifica<br><strong>Ricardo Pizarro y Expertos</strong></p>
+          <p>Certifica<br><strong>${expertData.name}</strong><br><span style="font-size:10px;color:#999">RUT: ${expertData.rut}</span></p>
           <p>
             <strong>Bucarest Art &amp; Antiques — RUT: 76.121.552-3</strong> |
             Tel: +569 33423442 |

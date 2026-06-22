@@ -485,7 +485,7 @@ app.get('/api/products', async (req, res) => {
 app.post('/generate/certificate', async (req, res) => {
   try {
     const { title, description, price, image, origen, alto, ancho,
-            send_email, to_email, to_name, nominative_honorific, nominative_name } = req.body;
+            send_email, to_email, to_name, nominative_honorific, nominative_name, expert } = req.body;
 
     const folio = await shopify.getNextCertFolio();
 
@@ -499,7 +499,7 @@ app.post('/generate/certificate', async (req, res) => {
     };
 
     const nominative = nominative_name ? { honorific: nominative_honorific || '', name: nominative_name } : null;
-    const html = certificateHTML([item], { folio, nominative });
+    const html = certificateHTML([item], { folio, nominative, expert: expert || 'ricardo' });
     const pdf = await generatePDF(html, { format: 'Letter', margin: { top: '20mm', right: '25mm', bottom: '20mm', left: '25mm' } });
 
     if (send_email && to_email) {
@@ -833,6 +833,14 @@ function adminUI(host) {
         </div>
         <input type="hidden" id="cert-image-url">
         <hr style="border:none;border-top:1px solid #e8e2d9;margin:20px 0">
+        <span class="section-label">Experto certificador</span>
+        <label style="margin-bottom:20px">Certifica
+          <select id="cert-expert">
+            <option value="ricardo">Ricardo Pizarro Pacheco — RUT: 5.571.169-0</option>
+            <option value="osvaldo">Osvaldo Yañez Lara — RUT: 9.051.374-5</option>
+          </select>
+        </label>
+        <hr style="border:none;border-top:1px solid #e8e2d9;margin:0 0 20px">
         <span class="section-label">Destinatario</span>
         <div class="checkbox-row" style="margin-bottom:12px">
           <input type="checkbox" id="cert-nominative-check" onchange="toggleNominative()">
@@ -898,6 +906,14 @@ function adminUI(host) {
       </div>
 
       <div class="card">
+        <span class="section-label">Experto certificador</span>
+        <label style="margin-bottom:20px">Certifica
+          <select id="scratch-expert">
+            <option value="ricardo">Ricardo Pizarro Pacheco — RUT: 5.571.169-0</option>
+            <option value="osvaldo">Osvaldo Yañez Lara — RUT: 9.051.374-5</option>
+          </select>
+        </label>
+        <hr style="border:none;border-top:1px solid #e8e2d9;margin:0 0 20px">
         <span class="section-label">Destinatario</span>
         <div class="checkbox-row" style="margin-bottom:12px">
           <input type="checkbox" id="scratch-nominative-check" onchange="toggleNominativeScratch()">
@@ -1480,6 +1496,7 @@ async function generateCert(sendEmail = false) {
     to_name: document.getElementById('cert-to-name').value,
     to_email: document.getElementById('cert-to-email').value,
     send_email: sendEmail,
+    expert: document.getElementById('cert-expert').value,
   };
   const check = document.getElementById('cert-nominative-check');
   if (check?.checked) {
@@ -1503,6 +1520,7 @@ async function generateCertScratch(sendEmail = false) {
     to_name: document.getElementById('scratch-to-name').value,
     to_email: document.getElementById('scratch-to-email').value,
     send_email: sendEmail,
+    expert: document.getElementById('scratch-expert').value,
   };
   const check = document.getElementById('scratch-nominative-check');
   if (check?.checked) {
