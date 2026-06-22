@@ -14,17 +14,25 @@ function formatPrice(amount, currency = 'CLP') {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency }).format(amount);
 }
 
-function certificateHTML(lineItems) {
+function certificateHTML(lineItems, options = {}) {
   const { dayName, dayNumber, monthName, year } = spanishDate();
+  const { folio, nominative } = options;
 
-  const pages = lineItems.map(item => `
+  const pages = lineItems.map(item => {
+    const addressee = nominative?.name
+      ? `A ${nominative.honorific || ''} ${nominative.name},`.trim()
+      : 'A quien corresponda,';
+
+    return `
     <div class="certificate-page">
 
       <div class="header">
         <img src="https://cdn.shopify.com/s/files/1/0814/7671/4798/files/encabezado_certificado.jpg?v=1776881313" alt="Encabezado Bucarest" class="header-img">
       </div>
 
-      <p class="a-quien">A quien corresponda,</p>
+      ${folio ? `<div class="folio">Folio: <strong>${folio}</strong></div>` : ''}
+
+      <p class="a-quien">${addressee}</p>
 
       <div class="spacer"></div>
 
@@ -73,7 +81,8 @@ function certificateHTML(lineItems) {
 
     </div>
     <div style="page-break-after: always;"></div>
-  `).join('');
+  `;
+  }).join('');
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -87,8 +96,10 @@ function certificateHTML(lineItems) {
 
     .certificate-page { width: 100%; }
 
-    .header { text-align: center; margin-bottom: 32px; }
+    .header { text-align: center; margin-bottom: 20px; }
     .header-img { width: 100%; height: auto; display: block; border: none; box-shadow: none; }
+
+    .folio { text-align: right; font-size: 11px; color: #999; margin-bottom: 14px; letter-spacing: 0.06em; }
 
     .a-quien { text-align: left; font-size: 13px; margin-bottom: 0; }
 

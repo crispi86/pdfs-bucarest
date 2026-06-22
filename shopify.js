@@ -245,6 +245,23 @@ async function getCollections() {
   return [...custom, ...smart].sort((a, b) => a.title.localeCompare(b.title));
 }
 
+async function getNextCertFolio() {
+  const { body } = await shopifyRequest('GET', 'shop/metafields.json?namespace=bucarest&key=cert_counter');
+  const existing = (body.metafields || [])[0];
+  const currentVal = existing ? (parseInt(existing.value) || 3099) : 3099;
+  const nextVal = currentVal + 1;
+  if (existing) {
+    await shopifyRequest('PUT', `metafields/${existing.id}.json`, {
+      metafield: { id: existing.id, value: String(nextVal), type: 'number_integer' },
+    });
+  } else {
+    await shopifyRequest('POST', 'metafields.json', {
+      metafield: { namespace: 'bucarest', key: 'cert_counter', value: String(nextVal), type: 'number_integer', owner_resource: 'shop' },
+    });
+  }
+  return `B${nextVal}`;
+}
+
 async function getLocations() {
   const { body } = await shopifyRequest('GET', 'locations.json');
   return (body.locations || []).filter(l => l.active);
@@ -270,6 +287,7 @@ module.exports = {
   getProductMetafields,
   getCollections,
   getLocations,
+  getNextCertFolio,
   isProductInCollection,
   getAllPages,
 };

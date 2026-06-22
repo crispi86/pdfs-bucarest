@@ -369,40 +369,32 @@ app.post('/webhook/orders/paid', async (req, res) => {
       );
     }
 
-    // Certificado de autenticidad solo para productos de la colección Pintura
-    const pinturaId = process.env.PINTURA_COLLECTION_ID;
-    if (pinturaId) {
-      const pinturaProducts = await shopify.getProductsByCollection(pinturaId);
-      const pinturaIds = new Set(pinturaProducts.map(p => p.id));
-      const pinturaItems = (order.line_items || []).filter(item => pinturaIds.has(item.product_id));
-
-      if (pinturaItems.length > 0) {
-        const lineItems = await Promise.all(pinturaItems.map(async item => {
-          const [product, metafields] = await Promise.all([
-            shopify.getProductById(item.product_id),
-            shopify.getProductMetafields(item.product_id),
-          ]);
-          return {
-            title: item.title,
-            image: product?.images?.[0]?.src || null,
-            price: parseFloat(item.price),
-            currency: order.currency || 'CLP',
-            description: product?.body_html ? product.body_html.replace(/<[^>]*>/g, '') : null,
-            metafields,
-          };
-        }));
-        const certHtml = certificateHTML(lineItems);
-        const certPdf = await generatePDF(certHtml, { format: 'Letter', margin: { top: '20mm', right: '25mm', bottom: '20mm', left: '25mm' } });
-        if (customerEmail) {
-          await sendCertificate(customerEmail, customerName, certPdf, pinturaItems.map(i => i.title).join(', '));
-        }
-        console.log(`✅ Certificado enviado para orden ${order.order_number}`);
-      }
-    }
-
     console.log(`✅ Comprobante enviado para orden ${order.order_number}`);
   } catch (err) {
     console.error('Error procesando webhook:', err);
+  }
+});
+
+// ── Datos de producto para formulario de certificado ──────────────────────────
+app.get('/api/product-cert-data', async (req, res) => {
+  try {
+    const { id } = req.query;
+    const [product, metafields] = await Promise.all([
+      shopify.getProductById(id),
+      shopify.getProductMetafields(id),
+    ]);
+    res.json({
+      id: product.id,
+      title: product.title || '',
+      image: product.images?.[0]?.src || '',
+      description: product.body_html ? product.body_html.replace(/<[^>]*>/g, '').trim() : '',
+      price: product.variants?.[0]?.price || '',
+      origen: metafields.origen || '',
+      alto: metafields.alto || '',
+      ancho: metafields.ancho || '',
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -489,36 +481,33 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
-// ── Generar certificado manual ────────────────────────────────────────────────
+// ── Generar certificado ───────────────────────────────────────────────────────
 app.post('/generate/certificate', async (req, res) => {
   try {
-    console.log('BODY recibido:', JSON.stringify(req.body));
-    const { product_ids, send_email, to_email, to_name, price_overrides } = req.body;
-    const ids = Array.isArray(product_ids) ? product_ids : [product_ids];
+    const { title, description, price, image, origen, alto, ancho,
+            send_email, to_email, to_name, nominative_honorific, nominative_name } = req.body;
 
-    const lineItems = await Promise.all(ids.map(async id => {
-      const p = await shopify.getProductById(id);
-      const priceRaw = price_overrides?.[id] || p.variants?.[0]?.price || 0;
-      return {
-        title: p.title,
-        image: p.images?.[0]?.src || null,
-        price: parseFloat(priceRaw),
-        currency: 'CLP',
-        description: p.body_html ? p.body_html.replace(/<[^>]*>/g, '') : null,
-      };
-    }));
+    const folio = await shopify.getNextCertFolio();
 
-    const html = certificateHTML(lineItems);
+    const item = {
+      title: title || '',
+      image: image || null,
+      price: parseFloat(price) || 0,
+      currency: 'CLP',
+      description: description || null,
+      metafields: { origen: origen || null, alto: alto || null, ancho: ancho || null },
+    };
+
+    const nominative = nominative_name ? { honorific: nominative_honorific || '', name: nominative_name } : null;
+    const html = certificateHTML([item], { folio, nominative });
     const pdf = await generatePDF(html, { format: 'Letter', margin: { top: '20mm', right: '25mm', bottom: '20mm', left: '25mm' } });
 
     if (send_email && to_email) {
-      console.log('Enviando certificado a:', to_email);
-      await sendCertificate(to_email, to_name || 'Cliente', pdf, lineItems.map(i => i.title).join(', '));
-      console.log('Certificado enviado OK');
-      res.json({ ok: true, message: 'Certificado enviado por correo.' });
+      await sendCertificate(to_email, to_name || 'Cliente', pdf, title);
+      res.json({ ok: true, message: `Certificado ${folio} enviado por correo.`, folio });
     } else {
       res.set('Content-Type', 'application/pdf');
-      res.set('Content-Disposition', 'attachment; filename="certificado.pdf"');
+      res.set('Content-Disposition', `attachment; filename="Certificado_${folio}.pdf"`);
       res.send(pdf);
     }
   } catch (e) {
@@ -791,14 +780,10 @@ function adminUI(host) {
   <!-- CERTIFICADOS -->
   <div class="page active" id="page-certificates">
     <h1>Certificados de Autenticidad</h1>
-    <p class="subtitle">Genera certificados de autenticidad manualmente o déjalos enviar de forma automática.</p>
-    <div class="automation-notice">
-      <strong>Automatización activa</strong>
-      Los certificados se generan automáticamente para todos los pedidos que incluyan productos de la colección <strong>Pintura</strong>. Se envía una copia al correo del cliente y otra a los correos internos: <strong>bucarestart@gmail.com</strong> y <strong>comunicaciones@bucarestart.cl</strong> para su impresión.
-    </div>
+    <p class="subtitle">Busca el producto, carga sus datos, edítalos y genera el certificado con folio automático.</p>
 
-    <div class="card">
-      <span class="section-label">Seleccionar productos</span>
+    <div class="card" id="cert-step-search">
+      <span class="section-label" id="cert-step-label">1. Seleccionar producto</span>
       <div id="cert-filters" class="filter-row">
         <button class="filter-btn active" onclick="setFilter('cert','collection')">Por colección</button>
         <button class="filter-btn" onclick="setFilter('cert','tag')">Por tag</button>
@@ -814,7 +799,7 @@ function adminUI(host) {
         <label>Tag <input id="cert-tag" placeholder="Ej: pintura" oninput="debounce(() => loadProducts('cert'), 600)"></label>
       </div>
       <div id="cert-filter-title" class="filter-panel">
-        <label>Palabra en título <input id="cert-title" placeholder="Ej: óleo" oninput="debounce(() => loadProducts('cert'), 600)"></label>
+        <label>Palabra en título <input id="cert-title-filter" placeholder="Ej: óleo" oninput="debounce(() => loadProducts('cert'), 600)"></label>
       </div>
       <div id="cert-filter-sku" class="filter-panel">
         <label>SKU <input id="cert-sku" placeholder="Ej: ART-001" oninput="debounce(() => loadProducts('cert'), 600)"></label>
@@ -830,19 +815,55 @@ function adminUI(host) {
         <div class="selected-count" id="cert-count"></div>
         <button class="select-all-btn" id="cert-select-all" onclick="toggleSelectAll('cert')" style="display:none">Seleccionar todos</button>
       </div>
-    </div>
-
-    <div class="card">
-      <span class="section-label">Enviar por correo (opcional)</span>
-      <div class="row row-2">
-        <label>Nombre del destinatario <input id="cert-to-name" placeholder="Ej: María González"></label>
-        <label>Correo del destinatario <input id="cert-to-email" type="email" placeholder="cliente@ejemplo.com"></label>
+      <div class="btn-row" style="margin-top:16px">
+        <button class="btn btn-primary" onclick="loadCertData()">Cargar datos del producto →</button>
       </div>
-      <p style="font-size:12px;color:#999">Si no ingresa un correo se descargará el PDF directo.</p>
     </div>
 
-    <div class="btn-row">
-      <button class="btn btn-primary" onclick="generate('certificate')">Generar certificado</button>
+    <div class="card" id="cert-step-edit" style="display:none">
+      <span class="section-label">2. Editar certificado</span>
+      <div id="cert-preview"></div>
+      <div class="row row-2">
+        <label>Título <input id="cert-title" placeholder="Título de la pieza"></label>
+        <label>Precio (CLP) <input id="cert-price" type="number" placeholder="Ej: 450000"></label>
+      </div>
+      <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:#666;margin-bottom:16px">Descripción <textarea id="cert-description" placeholder="Descripción de la pieza…"></textarea></label>
+      <div class="row row-3">
+        <label>Origen <input id="cert-origen" placeholder="Ej: Francia"></label>
+        <label>Alto <input id="cert-alto" placeholder="Ej: 50 cm"></label>
+        <label>Ancho <input id="cert-ancho" placeholder="Ej: 30 cm"></label>
+      </div>
+      <input type="hidden" id="cert-image-url">
+      <hr style="border:none;border-top:1px solid #e8e2d9;margin:20px 0">
+      <span class="section-label">Destinatario</span>
+      <div class="checkbox-row" style="margin-bottom:12px">
+        <input type="checkbox" id="cert-nominative-check" onchange="toggleNominative()">
+        <label for="cert-nominative-check" style="text-transform:none;letter-spacing:0;font-size:13px">Certificado nominativo (con nombre del cliente)</label>
+      </div>
+      <div id="cert-nominative-fields" style="display:none;margin-bottom:16px">
+        <div class="row row-2">
+          <label>Tratamiento
+            <select id="cert-honorific">
+              <option value="Sr.">Sr.</option>
+              <option value="Sra.">Sra.</option>
+              <option value="Dr.">Dr.</option>
+              <option value="Dra.">Dra.</option>
+            </select>
+          </label>
+          <label>Nombre del cliente <input id="cert-client-name" placeholder="Ej: Juan Pérez"></label>
+        </div>
+      </div>
+      <div class="row row-2">
+        <label>Correo del destinatario <input id="cert-to-email" type="email" placeholder="cliente@ejemplo.com"></label>
+        <label>Nombre para el correo <input id="cert-to-name" placeholder="Ej: María González"></label>
+      </div>
+      <p style="font-size:12px;color:#999;margin-top:6px">Si no ingresa correo se descargará el PDF directamente.</p>
+    </div>
+
+    <div class="btn-row" id="cert-btn-row" style="display:none">
+      <button class="btn btn-primary" onclick="generate('certificate')">Descargar certificado</button>
+      <button class="btn btn-secondary" onclick="generate('certificate', true)">Enviar por correo</button>
+      <button class="btn btn-secondary" onclick="resetCert()">← Cambiar producto</button>
     </div>
     <div class="msg" id="cert-msg"></div>
   </div>
@@ -1094,7 +1115,7 @@ async function loadProducts(prefix) {
     if (!tag) { loading.style.display = 'none'; return; }
     url += 'tag=' + encodeURIComponent(tag);
   } else if (activeFilter.includes('título')) {
-    const titleInput = prefix === 'catalog' ? 'catalog-title-filter' : prefix + '-title';
+    const titleInput = (prefix === 'catalog' || prefix === 'cert') ? prefix + '-title-filter' : prefix + '-title';
     const t = document.getElementById(titleInput).value.trim();
     if (!t) { loading.style.display = 'none'; return; }
     url += 'title=' + encodeURIComponent(t);
@@ -1260,21 +1281,30 @@ async function generate(type, sendEmail = false) {
     const orderId = document.getElementById('receipt-order').value.trim();
     if (!orderId) return showMsg(prefix, 'Ingrese un número de orden.', 'err');
     body = { order_id: orderId, send_email: sendEmail };
+  } else if (type === 'certificate') {
+    const title = document.getElementById('cert-title').value.trim();
+    if (!title) return showMsg(prefix, 'Cargue primero un producto.', 'err');
+    body = {
+      title,
+      description: document.getElementById('cert-description').value,
+      price: document.getElementById('cert-price').value,
+      image: document.getElementById('cert-image-url').value,
+      origen: document.getElementById('cert-origen').value,
+      alto: document.getElementById('cert-alto').value,
+      ancho: document.getElementById('cert-ancho').value,
+      to_name: document.getElementById('cert-to-name').value,
+      to_email: document.getElementById('cert-to-email').value,
+      send_email: sendEmail,
+    };
+    const nominativeCheck = document.getElementById('cert-nominative-check');
+    if (nominativeCheck?.checked) {
+      body.nominative_honorific = document.getElementById('cert-honorific').value;
+      body.nominative_name = document.getElementById('cert-client-name').value;
+    }
   } else {
     const ids = getSelectedIds(prefix);
     if (!ids.length) return showMsg(prefix, 'Seleccione al menos un producto.', 'err');
     body = { product_ids: ids };
-
-    if (type === 'certificate') {
-      body.to_name = document.getElementById('cert-to-name').value;
-      body.to_email = document.getElementById('cert-to-email').value;
-      body.send_email = !!body.to_email;
-      const certOverrides = {};
-      document.querySelectorAll('.price-override[data-prefix="cert"]').forEach(input => {
-        if (input.value) certOverrides[input.dataset.id] = input.value;
-      });
-      body.price_overrides = certOverrides;
-    }
     if (type === 'catalog') {
       body.title = document.getElementById('catalog-title').value || 'Catálogo';
       body.show_prices = document.getElementById('catalog-prices').checked ? 'true' : 'false';
@@ -1333,6 +1363,61 @@ async function generate(type, sendEmail = false) {
   } catch(e) {
     showMsg(prefix, 'Error generando el documento.', 'err');
   }
+}
+
+async function loadCertData() {
+  const ids = getSelectedIds('cert');
+  if (!ids.length) return showMsg('cert', 'Seleccione un producto de la lista.', 'err');
+  if (ids.length > 1) return showMsg('cert', 'Seleccione solo un producto para el certificado.', 'err');
+  showMsg('cert', 'Cargando datos del producto…', 'ok');
+  try {
+    const res = await fetch('/api/product-cert-data?id=' + ids[0]);
+    const data = await res.json();
+    document.getElementById('cert-title').value = data.title || '';
+    document.getElementById('cert-description').value = data.description || '';
+    document.getElementById('cert-price').value = data.price || '';
+    document.getElementById('cert-image-url').value = data.image || '';
+    document.getElementById('cert-origen').value = data.origen || '';
+    document.getElementById('cert-alto').value = data.alto || '';
+    document.getElementById('cert-ancho').value = data.ancho || '';
+    const preview = document.getElementById('cert-preview');
+    if (data.image) {
+      preview.innerHTML = \`<div style="text-align:center;margin-bottom:16px"><img src="\${data.image}" style="max-height:140px;max-width:100%;object-fit:contain;border-radius:4px;border:1px solid #e8e2d9"></div>\`;
+    } else {
+      preview.innerHTML = '';
+    }
+    document.getElementById('cert-step-edit').style.display = 'block';
+    document.getElementById('cert-btn-row').style.display = 'flex';
+    document.getElementById('cert-step-label').textContent = '1. Producto seleccionado ✓';
+    showMsg('cert', '', '');
+  } catch(e) {
+    showMsg('cert', 'Error cargando datos del producto.', 'err');
+  }
+}
+
+function toggleNominative() {
+  const checked = document.getElementById('cert-nominative-check').checked;
+  document.getElementById('cert-nominative-fields').style.display = checked ? 'block' : 'none';
+}
+
+function resetCert() {
+  document.getElementById('cert-step-edit').style.display = 'none';
+  document.getElementById('cert-btn-row').style.display = 'none';
+  document.getElementById('cert-step-label').textContent = '1. Seleccionar producto';
+  document.getElementById('cert-title').value = '';
+  document.getElementById('cert-description').value = '';
+  document.getElementById('cert-price').value = '';
+  document.getElementById('cert-image-url').value = '';
+  document.getElementById('cert-origen').value = '';
+  document.getElementById('cert-alto').value = '';
+  document.getElementById('cert-ancho').value = '';
+  document.getElementById('cert-preview').innerHTML = '';
+  document.getElementById('cert-nominative-check').checked = false;
+  document.getElementById('cert-nominative-fields').style.display = 'none';
+  document.getElementById('cert-client-name').value = '';
+  document.getElementById('cert-to-name').value = '';
+  document.getElementById('cert-to-email').value = '';
+  showMsg('cert', '', '');
 }
 
 init();
