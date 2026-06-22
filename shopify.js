@@ -252,7 +252,7 @@ async function getNextCertFolio() {
   const nextVal = currentVal + 1;
   if (existing) {
     await shopifyRequest('PUT', `metafields/${existing.id}.json`, {
-      metafield: { id: existing.id, value: String(nextVal), type: 'number_integer' },
+      metafield: { id: existing.id, value: String(nextVal) },
     });
   } else {
     await shopifyRequest('POST', 'metafields.json', {

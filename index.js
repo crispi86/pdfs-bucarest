@@ -663,23 +663,17 @@ function adminUI(host) {
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:"Hanken Grotesk",sans-serif;background:#faf9f7;color:#333;font-size:14px}
-    .sidebar{position:fixed;top:0;left:0;width:220px;height:100vh;background:#1a1a1a;padding:28px 20px;display:flex;flex-direction:column;gap:8px;z-index:100;transition:transform 0.25s}
-    .sidebar-logo{color:#fff;font-size:13px;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:24px;opacity:0.7}
-    .nav-btn{background:none;border:none;color:#aaa;font-size:13px;padding:10px 14px;text-align:left;cursor:pointer;border-radius:4px;width:100%;font-family:inherit;transition:all 0.15s}
-    .nav-btn:hover,.nav-btn.active{background:#2a2a2a;color:#fff}
-    .nav-btn.active{color:#c9a96e}
-    .main{margin-left:220px;padding:40px 48px;min-height:100vh}
-    .topbar{display:none;position:fixed;top:0;left:0;right:0;height:52px;background:#1a1a1a;align-items:center;padding:0 16px;z-index:99;gap:14px}
-    .topbar-logo{color:#fff;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;opacity:0.7;flex:1}
-    .hamburger{background:none;border:none;cursor:pointer;padding:6px;display:flex;flex-direction:column;gap:5px}
-    .hamburger span{display:block;width:22px;height:2px;background:#fff;border-radius:2px;transition:all 0.2s}
-    .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99}
-    .sidebar-overlay.open{display:block}
+    .topnav{position:fixed;top:0;left:0;right:0;height:56px;background:#1a1a1a;display:flex;align-items:center;padding:0 32px;gap:0;z-index:100}
+    .topnav-logo{color:#fff;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;opacity:0.6;margin-right:32px;white-space:nowrap}
+    .nav-btn{background:none;border:none;border-bottom:2px solid transparent;color:#aaa;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;padding:0 18px;height:56px;cursor:pointer;font-family:inherit;transition:all 0.15s;white-space:nowrap}
+    .nav-btn:hover{color:#fff}
+    .nav-btn.active{color:#c9a96e;border-bottom-color:#c9a96e}
+    .main{margin-left:0;padding:32px 48px;min-height:100vh;margin-top:56px}
     @media(max-width:768px){
-      .topbar{display:flex}
-      .sidebar{transform:translateX(-220px);top:52px;height:calc(100vh - 52px);padding:20px 16px}
-      .sidebar.open{transform:translateX(0)}
-      .main{margin-left:0;padding:72px 16px 32px}
+      .topnav{padding:0 16px;gap:0;overflow-x:auto}
+      .topnav-logo{display:none}
+      .nav-btn{padding:0 12px;font-size:11px}
+      .main{padding:24px 16px}
       .row-2,.row-3{grid-template-columns:1fr}
       .card{padding:18px 16px}
       h1{font-size:20px}
@@ -755,20 +749,16 @@ function adminUI(host) {
     .ppp-btn.active{border-color:#9a7f5a;background:#faf8f5;color:#9a7f5a;font-weight:500}
     .avail-btn{padding:4px 12px;border:1px solid #ddd6cc;background:#fff;font-size:11px;cursor:pointer;font-family:inherit;letter-spacing:0.06em;text-transform:uppercase;border-radius:12px;color:#666;transition:all 0.15s}
     .avail-btn.active{border-color:#9a7f5a;background:#faf8f5;color:#9a7f5a}
+    .cert-mode-tabs{display:flex;gap:0;margin-bottom:24px;border-bottom:2px solid #e8e2d9}
+    .cert-mode-tab{background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;padding:10px 24px;font-size:13px;font-family:inherit;color:#999;cursor:pointer;letter-spacing:0.06em;transition:all 0.15s}
+    .cert-mode-tab:hover{color:#555}
+    .cert-mode-tab.active{color:#1a1a1a;border-bottom-color:#1a1a1a;font-weight:500}
   </style>
 </head>
 <body>
 
-<div class="topbar">
-  <button class="hamburger" onclick="toggleSidebar()">
-    <span></span><span></span><span></span>
-  </button>
-  <div class="topbar-logo">Bucarest Art &amp; Antiques</div>
-</div>
-<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
-
-<div class="sidebar">
-  <div class="sidebar-logo">Bucarest Art &amp; Antiques</div>
+<div class="topnav">
+  <div class="topnav-logo">Bucarest Art &amp; Antiques</div>
   <button class="nav-btn active" onclick="showPage('certificates')">Certificados</button>
   <button class="nav-btn" onclick="showPage('catalog')">Catálogos</button>
   <button class="nav-btn" onclick="showPage('quote')">Cotizaciones</button>
@@ -780,91 +770,153 @@ function adminUI(host) {
   <!-- CERTIFICADOS -->
   <div class="page active" id="page-certificates">
     <h1>Certificados de Autenticidad</h1>
-    <p class="subtitle">Busca el producto, carga sus datos, edítalos y genera el certificado con folio automático.</p>
 
-    <div class="card" id="cert-step-search">
-      <span class="section-label" id="cert-step-label">1. Seleccionar producto</span>
-      <div id="cert-filters" class="filter-row">
-        <button class="filter-btn active" onclick="setFilter('cert','collection')">Por colección</button>
-        <button class="filter-btn" onclick="setFilter('cert','tag')">Por tag</button>
-        <button class="filter-btn" onclick="setFilter('cert','title')">Por título</button>
-        <button class="filter-btn" onclick="setFilter('cert','sku')">Por SKU</button>
-      </div>
-      <div id="cert-filter-collection" class="filter-panel active">
-        <label>Colección
-          <select id="cert-collection" onchange="loadProducts('cert')"><option value="">Seleccione…</option></select>
-        </label>
-      </div>
-      <div id="cert-filter-tag" class="filter-panel">
-        <label>Tag <input id="cert-tag" placeholder="Ej: pintura" oninput="debounce(() => loadProducts('cert'), 600)"></label>
-      </div>
-      <div id="cert-filter-title" class="filter-panel">
-        <label>Palabra en título <input id="cert-title-filter" placeholder="Ej: óleo" oninput="debounce(() => loadProducts('cert'), 600)"></label>
-      </div>
-      <div id="cert-filter-sku" class="filter-panel">
-        <label>SKU <input id="cert-sku" placeholder="Ej: ART-001" oninput="debounce(() => loadProducts('cert'), 600)"></label>
-      </div>
-      <div class="loading" id="cert-loading">Cargando productos…</div>
-      <div class="status-filter" id="cert-status-filter" style="display:none;margin-top:12px">
-        <button class="status-btn active" onclick="filterByStatus('cert','all',this)">Todos</button>
-        <button class="status-btn" onclick="filterByStatus('cert','active',this)">Activos</button>
-        <button class="status-btn" onclick="filterByStatus('cert','draft',this)">Borrador</button>
-      </div>
-      <div class="product-list" id="cert-products"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div class="selected-count" id="cert-count"></div>
-        <button class="select-all-btn" id="cert-select-all" onclick="toggleSelectAll('cert')" style="display:none">Seleccionar todos</button>
-      </div>
-      <div class="btn-row" style="margin-top:16px">
-        <button class="btn btn-primary" onclick="loadCertData()">Cargar datos del producto →</button>
-      </div>
+    <div class="cert-mode-tabs">
+      <button class="cert-mode-tab active" id="cert-tab-catalog" onclick="switchCertMode('catalog')">Desde catálogo</button>
+      <button class="cert-mode-tab" id="cert-tab-scratch" onclick="switchCertMode('scratch')">Desde cero</button>
     </div>
 
-    <div class="card" id="cert-step-edit" style="display:none">
-      <span class="section-label">2. Editar certificado</span>
-      <div id="cert-preview"></div>
-      <div class="row row-2">
-        <label>Título <input id="cert-title" placeholder="Título de la pieza"></label>
-        <label>Precio (CLP) <input id="cert-price" type="number" placeholder="Ej: 450000"></label>
-      </div>
-      <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:#666;margin-bottom:16px">Descripción <textarea id="cert-description" placeholder="Descripción de la pieza…"></textarea></label>
-      <div class="row row-3">
-        <label>Origen <input id="cert-origen" placeholder="Ej: Francia"></label>
-        <label>Alto <input id="cert-alto" placeholder="Ej: 50 cm"></label>
-        <label>Ancho <input id="cert-ancho" placeholder="Ej: 30 cm"></label>
-      </div>
-      <input type="hidden" id="cert-image-url">
-      <hr style="border:none;border-top:1px solid #e8e2d9;margin:20px 0">
-      <span class="section-label">Destinatario</span>
-      <div class="checkbox-row" style="margin-bottom:12px">
-        <input type="checkbox" id="cert-nominative-check" onchange="toggleNominative()">
-        <label for="cert-nominative-check" style="text-transform:none;letter-spacing:0;font-size:13px">Certificado nominativo (con nombre del cliente)</label>
-      </div>
-      <div id="cert-nominative-fields" style="display:none;margin-bottom:16px">
-        <div class="row row-2">
-          <label>Tratamiento
-            <select id="cert-honorific">
-              <option value="Sr.">Sr.</option>
-              <option value="Sra.">Sra.</option>
-              <option value="Dr.">Dr.</option>
-              <option value="Dra.">Dra.</option>
-            </select>
+    <!-- MODO: DESDE CATÁLOGO -->
+    <div id="cert-mode-catalog">
+      <div class="card" id="cert-step-search">
+        <span class="section-label" id="cert-step-label">1. Seleccionar producto</span>
+        <div id="cert-filters" class="filter-row">
+          <button class="filter-btn active" onclick="setFilter('cert','collection')">Por colección</button>
+          <button class="filter-btn" onclick="setFilter('cert','tag')">Por tag</button>
+          <button class="filter-btn" onclick="setFilter('cert','title')">Por título</button>
+          <button class="filter-btn" onclick="setFilter('cert','sku')">Por SKU</button>
+        </div>
+        <div id="cert-filter-collection" class="filter-panel active">
+          <label>Colección
+            <select id="cert-collection" onchange="loadProducts('cert')"><option value="">Seleccione…</option></select>
           </label>
-          <label>Nombre del cliente <input id="cert-client-name" placeholder="Ej: Juan Pérez"></label>
+        </div>
+        <div id="cert-filter-tag" class="filter-panel">
+          <label>Tag <input id="cert-tag" placeholder="Ej: pintura" oninput="debounce(() => loadProducts('cert'), 600)"></label>
+        </div>
+        <div id="cert-filter-title" class="filter-panel">
+          <label>Palabra en título <input id="cert-title-filter" placeholder="Ej: óleo" oninput="debounce(() => loadProducts('cert'), 600)"></label>
+        </div>
+        <div id="cert-filter-sku" class="filter-panel">
+          <label>SKU <input id="cert-sku" placeholder="Ej: ART-001" oninput="debounce(() => loadProducts('cert'), 600)"></label>
+        </div>
+        <div class="loading" id="cert-loading">Cargando productos…</div>
+        <div class="status-filter" id="cert-status-filter" style="display:none;margin-top:12px">
+          <button class="status-btn active" onclick="filterByStatus('cert','all',this)">Todos</button>
+          <button class="status-btn" onclick="filterByStatus('cert','active',this)">Activos</button>
+          <button class="status-btn" onclick="filterByStatus('cert','draft',this)">Borrador</button>
+        </div>
+        <div class="product-list" id="cert-products"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="selected-count" id="cert-count"></div>
+          <button class="select-all-btn" id="cert-select-all" onclick="toggleSelectAll('cert')" style="display:none">Seleccionar todos</button>
+        </div>
+        <div class="btn-row" style="margin-top:16px">
+          <button class="btn btn-primary" onclick="loadCertData()">Cargar datos del producto →</button>
         </div>
       </div>
-      <div class="row row-2">
-        <label>Correo del destinatario <input id="cert-to-email" type="email" placeholder="cliente@ejemplo.com"></label>
-        <label>Nombre para el correo <input id="cert-to-name" placeholder="Ej: María González"></label>
+
+      <div class="card" id="cert-step-edit" style="display:none">
+        <span class="section-label">2. Editar datos</span>
+        <div id="cert-preview"></div>
+        <div class="row row-2">
+          <label>Título <input id="cert-title" placeholder="Título de la pieza"></label>
+          <label>Precio (CLP) <input id="cert-price" type="number" placeholder="Ej: 450000"></label>
+        </div>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:#666;margin-bottom:16px">Descripción <textarea id="cert-description" placeholder="Descripción de la pieza…"></textarea></label>
+        <div class="row row-3">
+          <label>Origen <input id="cert-origen" placeholder="Ej: Francia"></label>
+          <label>Alto <input id="cert-alto" placeholder="Ej: 50 cm"></label>
+          <label>Ancho <input id="cert-ancho" placeholder="Ej: 30 cm"></label>
+        </div>
+        <input type="hidden" id="cert-image-url">
+        <hr style="border:none;border-top:1px solid #e8e2d9;margin:20px 0">
+        <span class="section-label">Destinatario</span>
+        <div class="checkbox-row" style="margin-bottom:12px">
+          <input type="checkbox" id="cert-nominative-check" onchange="toggleNominative()">
+          <label for="cert-nominative-check" style="text-transform:none;letter-spacing:0;font-size:13px">Certificado nominativo (con nombre del cliente)</label>
+        </div>
+        <div id="cert-nominative-fields" style="display:none;margin-bottom:16px">
+          <div class="row row-2">
+            <label>Tratamiento
+              <select id="cert-honorific">
+                <option value="Sr.">Sr.</option>
+                <option value="Sra.">Sra.</option>
+                <option value="Dr.">Dr.</option>
+                <option value="Dra.">Dra.</option>
+              </select>
+            </label>
+            <label>Nombre del cliente <input id="cert-client-name" placeholder="Ej: Juan Pérez"></label>
+          </div>
+        </div>
+        <div class="row row-2">
+          <label>Correo del destinatario <input id="cert-to-email" type="email" placeholder="cliente@ejemplo.com"></label>
+          <label>Nombre para el correo <input id="cert-to-name" placeholder="Ej: María González"></label>
+        </div>
+        <p style="font-size:12px;color:#999;margin-top:6px">Si no ingresa correo se descargará el PDF directamente.</p>
       </div>
-      <p style="font-size:12px;color:#999;margin-top:6px">Si no ingresa correo se descargará el PDF directamente.</p>
+
+      <div class="btn-row" id="cert-btn-row" style="display:none">
+        <button class="btn btn-primary" onclick="generateCert()">Descargar certificado</button>
+        <button class="btn btn-secondary" onclick="generateCert(true)">Enviar por correo</button>
+        <button class="btn btn-secondary" onclick="resetCert()">← Cambiar producto</button>
+      </div>
     </div>
 
-    <div class="btn-row" id="cert-btn-row" style="display:none">
-      <button class="btn btn-primary" onclick="generate('certificate')">Descargar certificado</button>
-      <button class="btn btn-secondary" onclick="generate('certificate', true)">Enviar por correo</button>
-      <button class="btn btn-secondary" onclick="resetCert()">← Cambiar producto</button>
+    <!-- MODO: DESDE CERO -->
+    <div id="cert-mode-scratch" style="display:none">
+      <div class="card">
+        <span class="section-label">Datos de la pieza</span>
+        <div class="row row-2">
+          <label>Título <input id="scratch-title" placeholder="Ej: Óleo sobre tela, paisaje costero"></label>
+          <label>Precio (CLP) <input id="scratch-price" type="number" placeholder="Ej: 450000"></label>
+        </div>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:#666;margin-bottom:16px">Descripción <textarea id="scratch-description" placeholder="Descripción técnica de la pieza…"></textarea></label>
+        <div class="row row-3">
+          <label>Origen <input id="scratch-origen" placeholder="Ej: Francia"></label>
+          <label>Alto <input id="scratch-alto" placeholder="Ej: 50 cm"></label>
+          <label>Ancho <input id="scratch-ancho" placeholder="Ej: 30 cm"></label>
+        </div>
+        <label>URL de imagen
+          <input id="scratch-image" placeholder="https://cdn.shopify.com/…/imagen.jpg" oninput="previewScratchImage()">
+        </label>
+        <div id="scratch-img-preview" style="margin-top:12px;display:none;text-align:center">
+          <img id="scratch-img-tag" style="max-height:140px;max-width:100%;object-fit:contain;border-radius:4px;border:1px solid #e8e2d9">
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="section-label">Destinatario</span>
+        <div class="checkbox-row" style="margin-bottom:12px">
+          <input type="checkbox" id="scratch-nominative-check" onchange="toggleNominativeScratch()">
+          <label for="scratch-nominative-check" style="text-transform:none;letter-spacing:0;font-size:13px">Certificado nominativo (con nombre del cliente)</label>
+        </div>
+        <div id="scratch-nominative-fields" style="display:none;margin-bottom:16px">
+          <div class="row row-2">
+            <label>Tratamiento
+              <select id="scratch-honorific">
+                <option value="Sr.">Sr.</option>
+                <option value="Sra.">Sra.</option>
+                <option value="Dr.">Dr.</option>
+                <option value="Dra.">Dra.</option>
+              </select>
+            </label>
+            <label>Nombre del cliente <input id="scratch-client-name" placeholder="Ej: Juan Pérez"></label>
+          </div>
+        </div>
+        <div class="row row-2">
+          <label>Correo del destinatario <input id="scratch-to-email" type="email" placeholder="cliente@ejemplo.com"></label>
+          <label>Nombre para el correo <input id="scratch-to-name" placeholder="Ej: María González"></label>
+        </div>
+        <p style="font-size:12px;color:#999;margin-top:6px">Si no ingresa correo se descargará el PDF directamente.</p>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="generateCertScratch()">Descargar certificado</button>
+        <button class="btn btn-secondary" onclick="generateCertScratch(true)">Enviar por correo</button>
+      </div>
     </div>
+
     <div class="msg" id="cert-msg"></div>
   </div>
 
@@ -1072,17 +1124,11 @@ async function init() {
   loadTexturePicker();
 }
 
-function toggleSidebar() {
-  document.querySelector('.sidebar').classList.toggle('open');
-  document.getElementById('sidebar-overlay').classList.toggle('open');
-}
-
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   event.target.classList.add('active');
-  if (window.innerWidth <= 768) toggleSidebar();
 }
 
 function setFilter(prefix, type) {
@@ -1362,6 +1408,97 @@ async function generate(type, sendEmail = false) {
     }
   } catch(e) {
     showMsg(prefix, 'Error generando el documento.', 'err');
+  }
+}
+
+function switchCertMode(mode) {
+  document.getElementById('cert-mode-catalog').style.display = mode === 'catalog' ? 'block' : 'none';
+  document.getElementById('cert-mode-scratch').style.display = mode === 'scratch' ? 'block' : 'none';
+  document.getElementById('cert-tab-catalog').classList.toggle('active', mode === 'catalog');
+  document.getElementById('cert-tab-scratch').classList.toggle('active', mode === 'scratch');
+  showMsg('cert', '', '');
+}
+
+function previewScratchImage() {
+  const url = document.getElementById('scratch-image').value.trim();
+  const wrap = document.getElementById('scratch-img-preview');
+  const img = document.getElementById('scratch-img-tag');
+  if (url) { img.src = url; wrap.style.display = 'block'; }
+  else { wrap.style.display = 'none'; }
+}
+
+function toggleNominativeScratch() {
+  const checked = document.getElementById('scratch-nominative-check').checked;
+  document.getElementById('scratch-nominative-fields').style.display = checked ? 'block' : 'none';
+}
+
+async function generateCert(sendEmail = false) {
+  const title = document.getElementById('cert-title').value.trim();
+  if (!title) return showMsg('cert', 'Cargue primero un producto.', 'err');
+  const body = {
+    title,
+    description: document.getElementById('cert-description').value,
+    price: document.getElementById('cert-price').value,
+    image: document.getElementById('cert-image-url').value,
+    origen: document.getElementById('cert-origen').value,
+    alto: document.getElementById('cert-alto').value,
+    ancho: document.getElementById('cert-ancho').value,
+    to_name: document.getElementById('cert-to-name').value,
+    to_email: document.getElementById('cert-to-email').value,
+    send_email: sendEmail,
+  };
+  const check = document.getElementById('cert-nominative-check');
+  if (check?.checked) {
+    body.nominative_honorific = document.getElementById('cert-honorific').value;
+    body.nominative_name = document.getElementById('cert-client-name').value;
+  }
+  await submitCertBody(body, sendEmail);
+}
+
+async function generateCertScratch(sendEmail = false) {
+  const title = document.getElementById('scratch-title').value.trim();
+  if (!title) return showMsg('cert', 'Ingrese al menos el título de la pieza.', 'err');
+  const body = {
+    title,
+    description: document.getElementById('scratch-description').value,
+    price: document.getElementById('scratch-price').value,
+    image: document.getElementById('scratch-image').value,
+    origen: document.getElementById('scratch-origen').value,
+    alto: document.getElementById('scratch-alto').value,
+    ancho: document.getElementById('scratch-ancho').value,
+    to_name: document.getElementById('scratch-to-name').value,
+    to_email: document.getElementById('scratch-to-email').value,
+    send_email: sendEmail,
+  };
+  const check = document.getElementById('scratch-nominative-check');
+  if (check?.checked) {
+    body.nominative_honorific = document.getElementById('scratch-honorific').value;
+    body.nominative_name = document.getElementById('scratch-client-name').value;
+  }
+  await submitCertBody(body, sendEmail);
+}
+
+async function submitCertBody(body, sendEmail) {
+  showMsg('cert', 'Generando certificado…', 'ok');
+  try {
+    const res = await fetch('/generate/certificate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (res.headers.get('content-type')?.includes('application/pdf')) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'Certificado.pdf'; a.click();
+      URL.revokeObjectURL(url);
+      showMsg('cert', '', '');
+    } else {
+      const data = await res.json();
+      showMsg('cert', data.message || data.error, data.ok ? 'ok' : 'err');
+    }
+  } catch(e) {
+    showMsg('cert', 'Error generando el certificado.', 'err');
   }
 }
 
