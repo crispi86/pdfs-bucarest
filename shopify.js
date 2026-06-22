@@ -245,21 +245,55 @@ async function getCollections() {
   return [...custom, ...smart].sort((a, b) => a.title.localeCompare(b.title));
 }
 
-async function getNextCertFolio() {
-  const { body } = await shopifyRequest('GET', 'shop/metafields.json?namespace=bucarest&key=cert_counter');
-  const existing = (body.metafields || [])[0];
-  const currentVal = existing ? (parseInt(existing.value) || 3099) : 3099;
-  const nextVal = currentVal + 1;
-  if (existing) {
-    await shopifyRequest('PUT', `metafields/${existing.id}.json`, {
-      metafield: { id: existing.id, value: String(nextVal) },
-    });
-  } else {
-    await shopifyRequest('POST', 'metafields.json', {
-      metafield: { namespace: 'bucarest', key: 'cert_counter', value: String(nextVal), type: 'number_integer', owner_resource: 'shop' },
-    });
+// In-memory counter — fuente de verdad durante la sesión del servidor.
+// Se inicializa desde Shopify en el primer uso; Shopify actúa como backup
+// para sobrevivir reinicios del servidor.
+let _folioCounter = null;
+
+async function _loadFolioFromShopify() {
+  try {
+    const { body } = await shopifyRequest('GET', 'shop/metafields.json?namespace=bucarest&key=cert_counter');
+    const existing = (body.metafields || [])[0];
+    const val = existing ? (parseInt(existing.value) || 3099) : 3099;
+    console.log(`[folio] cargado desde Shopify: ${val}`);
+    return val;
+  } catch (e) {
+    console.error('[folio] error leyendo Shopify, usando 3099:', e.message);
+    return 3099;
   }
-  return `B${nextVal}`;
+}
+
+async function _saveFolioToShopify(val) {
+  try {
+    const { body: getBody } = await shopifyRequest('GET', 'shop/metafields.json?namespace=bucarest&key=cert_counter');
+    const existing = (getBody.metafields || [])[0];
+    if (existing) {
+      const { body: putBody } = await shopifyRequest('PUT', `metafields/${existing.id}.json`, {
+        metafield: { id: existing.id, value: String(val) },
+      });
+      console.log(`[folio] PUT Shopify → ${val}:`, JSON.stringify(putBody?.metafield?.value));
+    } else {
+      // Endpoint correcto para metafields de shop
+      const { body: postBody } = await shopifyRequest('POST', 'shop/metafields.json', {
+        metafield: { namespace: 'bucarest', key: 'cert_counter', value: String(val), type: 'number_integer' },
+      });
+      console.log(`[folio] POST Shopify → ${val}:`, JSON.stringify(postBody?.metafield?.value));
+    }
+  } catch (e) {
+    console.error('[folio] error guardando en Shopify:', e.message);
+  }
+}
+
+async function getNextCertFolio() {
+  if (_folioCounter === null) {
+    _folioCounter = await _loadFolioFromShopify();
+  }
+  _folioCounter += 1;
+  const folio = `B${_folioCounter}`;
+  console.log(`[folio] generado: ${folio}`);
+  // Persistir en Shopify sin bloquear la generación del PDF
+  _saveFolioToShopify(_folioCounter);
+  return folio;
 }
 
 async function getLocations() {
