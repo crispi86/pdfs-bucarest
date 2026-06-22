@@ -753,6 +753,8 @@ function adminUI(host) {
     .cert-mode-tab{background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;padding:10px 24px;font-size:13px;font-family:inherit;color:#999;cursor:pointer;letter-spacing:0.06em;transition:all 0.15s}
     .cert-mode-tab:hover{color:#555}
     .cert-mode-tab.active{color:#1a1a1a;border-bottom-color:#1a1a1a;font-weight:500}
+    .file-upload-area{border:2px dashed #ddd6cc;border-radius:4px;padding:28px 20px;cursor:pointer;transition:all 0.15s;background:#fdfcfb;display:flex;align-items:center;justify-content:center;min-height:120px}
+    .file-upload-area:hover,.file-upload-area.drag-over{border-color:#9a7f5a;background:#faf8f5}
   </style>
 </head>
 <body>
@@ -877,12 +879,22 @@ function adminUI(host) {
           <label>Alto <input id="scratch-alto" placeholder="Ej: 50 cm"></label>
           <label>Ancho <input id="scratch-ancho" placeholder="Ej: 30 cm"></label>
         </div>
-        <label>URL de imagen
-          <input id="scratch-image" placeholder="https://cdn.shopify.com/…/imagen.jpg" oninput="previewScratchImage()">
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:#666">Imagen
+          <div class="file-upload-area" id="scratch-drop-zone" onclick="document.getElementById('scratch-file-input').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleScratchDrop(event)">
+            <input type="file" id="scratch-file-input" accept="image/*" style="display:none" onchange="handleScratchFile(this.files[0])">
+            <div id="scratch-upload-prompt" style="pointer-events:none">
+              <div style="font-size:28px;margin-bottom:6px;opacity:0.35">↑</div>
+              <div style="font-size:13px;color:#999;letter-spacing:0">Haz clic o arrastra una imagen aquí</div>
+              <div style="font-size:11px;color:#bbb;margin-top:4px;letter-spacing:0">JPG, PNG, WEBP</div>
+            </div>
+            <div id="scratch-img-preview" style="display:none;text-align:center;pointer-events:none">
+              <img id="scratch-img-tag" style="max-height:160px;max-width:100%;object-fit:contain;border-radius:4px">
+              <div id="scratch-img-name" style="font-size:11px;color:#999;margin-top:6px;letter-spacing:0"></div>
+            </div>
+          </div>
+          <button type="button" id="scratch-clear-img" onclick="clearScratchImage()" style="display:none;background:none;border:none;color:#999;font-size:11px;cursor:pointer;text-decoration:underline;font-family:inherit;text-align:left;padding:0;margin-top:4px">Quitar imagen</button>
         </label>
-        <div id="scratch-img-preview" style="margin-top:12px;display:none;text-align:center">
-          <img id="scratch-img-tag" style="max-height:140px;max-width:100%;object-fit:contain;border-radius:4px;border:1px solid #e8e2d9">
-        </div>
+        <input type="hidden" id="scratch-image-data">
       </div>
 
       <div class="card">
@@ -1419,12 +1431,34 @@ function switchCertMode(mode) {
   showMsg('cert', '', '');
 }
 
-function previewScratchImage() {
-  const url = document.getElementById('scratch-image').value.trim();
-  const wrap = document.getElementById('scratch-img-preview');
-  const img = document.getElementById('scratch-img-tag');
-  if (url) { img.src = url; wrap.style.display = 'block'; }
-  else { wrap.style.display = 'none'; }
+function handleScratchFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const data = e.target.result;
+    document.getElementById('scratch-image-data').value = data;
+    document.getElementById('scratch-img-tag').src = data;
+    document.getElementById('scratch-img-name').textContent = file.name;
+    document.getElementById('scratch-img-preview').style.display = 'block';
+    document.getElementById('scratch-upload-prompt').style.display = 'none';
+    document.getElementById('scratch-clear-img').style.display = 'inline';
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleScratchDrop(event) {
+  event.preventDefault();
+  document.getElementById('scratch-drop-zone').classList.remove('drag-over');
+  const file = event.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) handleScratchFile(file);
+}
+
+function clearScratchImage() {
+  document.getElementById('scratch-image-data').value = '';
+  document.getElementById('scratch-file-input').value = '';
+  document.getElementById('scratch-img-preview').style.display = 'none';
+  document.getElementById('scratch-upload-prompt').style.display = 'block';
+  document.getElementById('scratch-clear-img').style.display = 'none';
 }
 
 function toggleNominativeScratch() {
@@ -1462,7 +1496,7 @@ async function generateCertScratch(sendEmail = false) {
     title,
     description: document.getElementById('scratch-description').value,
     price: document.getElementById('scratch-price').value,
-    image: document.getElementById('scratch-image').value,
+    image: document.getElementById('scratch-image-data').value,
     origen: document.getElementById('scratch-origen').value,
     alto: document.getElementById('scratch-alto').value,
     ancho: document.getElementById('scratch-ancho').value,
