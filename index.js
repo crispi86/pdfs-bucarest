@@ -3,6 +3,25 @@ process.on('uncaughtException', err => console.error('UNCAUGHT:', err));
 process.on('unhandledRejection', err => console.error('UNHANDLED:', err));
 const express = require('express');
 const crypto = require('crypto');
+const https = require('https');
+const http = require('http');
+
+function fetchImageAsBase64(url) {
+  return new Promise((resolve) => {
+    if (!url || url.startsWith('data:')) { resolve(url); return; }
+    const client = url.startsWith('https') ? https : http;
+    client.get(url, (res) => {
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => {
+        const buf = Buffer.concat(chunks);
+        const mime = res.headers['content-type'] || 'image/jpeg';
+        resolve(`data:${mime};base64,${buf.toString('base64')}`);
+      });
+      res.on('error', () => resolve(url));
+    }).on('error', () => resolve(url));
+  });
+}
 const { generatePDF } = require('./pdf');
 const { sendCertificate, sendPDFToInternal, sendToCustomer } = require('./email');
 const { certificateHTML } = require('./templates/certificate');
@@ -488,10 +507,11 @@ app.post('/generate/certificate', async (req, res) => {
             send_email, to_email, to_name, nominative_honorific, nominative_name, expert } = req.body;
 
     const folio = await shopify.getNextCertFolio();
+    const imageData = await fetchImageAsBase64(image);
 
     const item = {
       title: title || '',
-      image: image || null,
+      image: imageData || null,
       price: parseFloat(price) || 0,
       currency: 'CLP',
       description: description || null,
