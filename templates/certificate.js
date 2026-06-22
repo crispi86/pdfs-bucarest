@@ -109,7 +109,7 @@ function certificateHTML(lineItems, options = {}) {
 
     .a-quien { text-align: left; font-size: 13px; margin-bottom: 0; }
 
-    .spacer { height: 80px; }
+    .spacer { height: 18px; }
 
     .body-text { font-size: 13px; line-height: 1.8; margin-bottom: 28px; text-align: justify; }
 
