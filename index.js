@@ -47,8 +47,8 @@ function requireAuth(req, res, next) {
 }
 
 app.use('/webhook', express.raw({ type: 'application/json' }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/', (req, res) => res.send('Bucarest PDF Generator — OK'));
@@ -1353,8 +1353,13 @@ function getSelectedIds(prefix) {
 
 function showMsg(prefix, text, type) {
   const el = document.getElementById(prefix + '-msg');
-  el.textContent = text; el.className = 'msg ' + type; el.style.display = 'block';
-  setTimeout(() => el.style.display = 'none', 5000);
+  if (!text) { el.style.display = 'none'; return; }
+  el.textContent = text;
+  el.className = 'msg ' + type;
+  el.style.display = 'block';
+  if (type !== 'ok' || text !== 'Generando certificado…') {
+    setTimeout(() => { el.style.display = 'none'; }, 6000);
+  }
 }
 
 async function generate(type, sendEmail = false) {
@@ -1463,13 +1468,28 @@ function handleScratchFile(file) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (e) => {
-    const data = e.target.result;
-    document.getElementById('scratch-image-data').value = data;
-    document.getElementById('scratch-img-tag').src = data;
-    document.getElementById('scratch-img-name').textContent = file.name;
-    document.getElementById('scratch-img-preview').style.display = 'block';
-    document.getElementById('scratch-upload-prompt').style.display = 'none';
-    document.getElementById('scratch-clear-img').style.display = 'inline';
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1400;
+      let { width, height } = img;
+      if (width > MAX || height > MAX) {
+        const ratio = Math.min(MAX / width, MAX / height);
+        width  = Math.round(width  * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width  = width;
+      canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      const data = canvas.toDataURL('image/jpeg', 0.85);
+      document.getElementById('scratch-image-data').value = data;
+      document.getElementById('scratch-img-tag').src = data;
+      document.getElementById('scratch-img-name').textContent = file.name;
+      document.getElementById('scratch-img-preview').style.display = 'block';
+      document.getElementById('scratch-upload-prompt').style.display = 'none';
+      document.getElementById('scratch-clear-img').style.display = 'inline';
+    };
+    img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 }
@@ -1543,27 +1563,48 @@ async function generateCertScratch(sendEmail = false) {
 }
 
 async function submitCertBody(body, sendEmail) {
+  const msgEl = document.getElementById('cert-msg');
+  msgEl.style.display = 'none';
   showMsg('cert', 'Generando certificado…', 'ok');
+  msgEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
   try {
     const res = await fetch('/generate/certificate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
+
+    if (res.status === 413) {
+      showCertErr('La imagen es demasiado grande. Intenta con una imagen más pequeña.');
+      return;
+    }
+    if (!res.ok && !res.headers.get('content-type')?.includes('application/pdf')) {
+      let errMsg = 'Error del servidor (' + res.status + ').';
+      try { const d = await res.json(); errMsg = d.error || d.message || errMsg; } catch {}
+      showCertErr(errMsg);
+      return;
+    }
     if (res.headers.get('content-type')?.includes('application/pdf')) {
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = 'Certificado.pdf'; a.click();
       URL.revokeObjectURL(url);
-      showMsg('cert', '', '');
+      msgEl.style.display = 'none';
     } else {
       const data = await res.json();
-      showMsg('cert', data.message || data.error, data.ok ? 'ok' : 'err');
+      showMsg('cert', data.message || data.error || 'Respuesta inesperada.', data.ok ? 'ok' : 'err');
+      msgEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   } catch(e) {
-    showMsg('cert', 'Error generando el certificado.', 'err');
+    showCertErr('No se pudo conectar con el servidor: ' + e.message);
   }
+}
+
+function showCertErr(text) {
+  showMsg('cert', text, 'err');
+  document.getElementById('cert-msg').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 async function loadCertData() {
