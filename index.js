@@ -3,25 +3,6 @@ process.on('uncaughtException', err => console.error('UNCAUGHT:', err));
 process.on('unhandledRejection', err => console.error('UNHANDLED:', err));
 const express = require('express');
 const crypto = require('crypto');
-const https = require('https');
-const http = require('http');
-
-function fetchImageAsBase64(url) {
-  return new Promise((resolve) => {
-    if (!url || url.startsWith('data:')) { resolve(url); return; }
-    const client = url.startsWith('https') ? https : http;
-    client.get(url, (res) => {
-      const chunks = [];
-      res.on('data', c => chunks.push(c));
-      res.on('end', () => {
-        const buf = Buffer.concat(chunks);
-        const mime = res.headers['content-type'] || 'image/jpeg';
-        resolve(`data:${mime};base64,${buf.toString('base64')}`);
-      });
-      res.on('error', () => resolve(url));
-    }).on('error', () => resolve(url));
-  });
-}
 const { generatePDF } = require('./pdf');
 const { sendCertificate, sendPDFToInternal, sendToCustomer } = require('./email');
 const { certificateHTML } = require('./templates/certificate');
@@ -29,6 +10,7 @@ const { catalogHTML } = require('./templates/catalog');
 const { quoteHTML } = require('./templates/quote');
 const { receiptHTML } = require('./templates/receipt');
 const shopify = require('./shopify');
+const { fetchBase64, embedProductImages, initStaticImages, STATIC } = require('./images');
 
 const app = express();
 
@@ -506,8 +488,8 @@ app.post('/generate/certificate', async (req, res) => {
     const { title, description, price, image, origen, alto, ancho,
             send_email, to_email, to_name, nominative_honorific, nominative_name, expert } = req.body;
 
-    const folio = await shopify.getNextCertFolio();
-    const imageData = await fetchImageAsBase64(image);
+    const folio     = await shopify.getNextCertFolio();
+    const imageData = await fetchBase64(image);
 
     const item = {
       title: title || '',
@@ -519,7 +501,7 @@ app.post('/generate/certificate', async (req, res) => {
     };
 
     const nominative = nominative_name ? { honorific: nominative_honorific || '', name: nominative_name } : null;
-    const html = certificateHTML([item], { folio, nominative, expert: expert || 'ricardo' });
+    const html = certificateHTML([item], { folio, nominative, expert: expert || 'ricardo', staticImages: STATIC });
     const pdf = await generatePDF(html, { format: 'Letter', margin: { top: '20mm', right: '25mm', bottom: '20mm', left: '25mm' } });
 
     if (send_email && to_email) {
@@ -542,7 +524,7 @@ app.post('/generate/catalog', async (req, res) => {
     const { product_ids, title, show_prices, show_estado, send_email, responsable, cargo, correo, telefono, bg_image, price_overrides } = req.body;
     const ids = Array.isArray(product_ids) ? product_ids : [product_ids];
 
-    const [products, locations] = await Promise.all([
+    const [rawProducts, locations, bgImageData] = await Promise.all([
       Promise.all(ids.map(async id => {
         const p = await shopify.getProductById(id);
         p._metafields = await shopify.getProductMetafields(id);
@@ -552,7 +534,10 @@ app.post('/generate/catalog', async (req, res) => {
         return p;
       })),
       withCache('locations', 60 * 60 * 1000, () => shopify.getLocations()),
+      bg_image ? fetchBase64(bg_image) : Promise.resolve(''),
     ]);
+
+    const products = await embedProductImages(rawProducts);
 
     const html = catalogHTML(products, {
       title: title || 'Catálogo',
@@ -560,7 +545,9 @@ app.post('/generate/catalog', async (req, res) => {
       showEstado: show_estado === 'true',
       responsable, cargo, correo, telefono,
       bgImage: bg_image,
+      bgImageData,
       locations,
+      staticImages: STATIC,
     });
     const pdf = await generatePDF(html);
 
@@ -585,11 +572,13 @@ app.post('/generate/quote', async (req, res) => {
     const { product_ids, client_name, client_email, client_rut, client_company, client_razon_social, client_direccion, valid_days, notes, send_email, price_overrides, products_per_page, show_links, show_description, show_sku } = req.body;
     const ids = Array.isArray(product_ids) ? product_ids : [product_ids];
 
-    const products = await Promise.all(ids.map(async id => {
+    const rawProducts = await Promise.all(ids.map(async id => {
       const p = await shopify.getProductById(id);
       if (price_overrides?.[id] && p.variants?.[0]) p.variants[0].price = String(price_overrides[id]);
       return p;
     }));
+    const products = await embedProductImages(rawProducts);
+
     const html = quoteHTML(products, {
       clientName: client_name, clientEmail: client_email,
       clientRut: client_rut, clientCompany: client_company,
@@ -599,6 +588,7 @@ app.post('/generate/quote', async (req, res) => {
       showLinks: show_links === true || show_links === 'true',
       showDescription: show_description !== false && show_description !== 'false',
       showSku: show_sku === true || show_sku === 'true',
+      staticImages: STATIC,
     });
     const pdf = await generatePDF(html);
     const filename = `Cotizacion_${(client_name || 'Bucarest').replace(/\s/g, '_')}.pdf`;
@@ -650,6 +640,8 @@ app.post('/generate/receipt', async (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Bucarest PDF Generator corriendo en puerto ${PORT}`);
+  // Pre-fetch imágenes estáticas de templates (encabezado, timbre, logo)
+  initStaticImages().catch(() => {});
   // Pre-calentar caché de colecciones y ubicaciones en background
   shopify.getCollections()
     .then(data => setCached('collections', data, 30 * 60 * 1000))

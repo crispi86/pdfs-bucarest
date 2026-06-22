@@ -16,7 +16,7 @@ function formatPrice(amount, currency = 'CLP') {
 
 function certificateHTML(lineItems, options = {}) {
   const { dayName, dayNumber, monthName, year } = spanishDate();
-  const { folio, nominative, expert } = options;
+  const { folio, nominative, expert, staticImages = {} } = options;
 
   const experts = {
     ricardo: { name: 'Ricardo Pizarro Pacheco', rut: '5.571.169-0' },
@@ -33,7 +33,7 @@ function certificateHTML(lineItems, options = {}) {
     <div class="certificate-page">
 
       <div class="header">
-        <img src="https://cdn.shopify.com/s/files/1/0814/7671/4798/files/encabezado_certificado.jpg?v=1776881313" alt="Encabezado Bucarest" class="header-img">
+        <img src="${staticImages.encabezado || 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/encabezado_certificado.jpg?v=1776881313'}" alt="Encabezado Bucarest" class="header-img">
       </div>
 
       ${folio ? `<div class="folio">Folio: <strong>${folio}</strong></div>` : ''}
@@ -74,7 +74,7 @@ function certificateHTML(lineItems, options = {}) {
           en el rubro de la pintura y las antigüedades. Garantizamos la autenticidad de todas nuestras piezas.
         </p>
         <div class="signature-area">
-          <img src="https://cdn.shopify.com/s/files/1/0814/7671/4798/files/Timbre_Bucarest.png?v=1737570205" alt="Timbre Bucarest Art">
+          <img src="${staticImages.timbre || 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/Timbre_Bucarest.png?v=1737570205'}" alt="Timbre Bucarest Art">
           <p>Certifica<br><strong>${expertData.name}</strong><br><span style="font-size:10px;color:#999">RUT: ${expertData.rut}</span></p>
           <p>
             <strong>Bucarest Art &amp; Antiques — RUT: 76.121.552-3</strong> |

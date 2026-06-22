@@ -8,11 +8,13 @@ function catalogHTML(products, options = {}) {
     correo = '',
     telefono = '',
     bgImage = '',
+    bgImageData = '',
     locations = [],
+    staticImages = {},
   } = options;
 
-  const LOGO    = 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/logo_web.png?v=1765624776';
-  const TEXTURA = bgImage || 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura21.jpg?v=1772584942';
+  const LOGO    = staticImages.logo    || 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/logo_web.png?v=1765624776';
+  const TEXTURA = bgImageData || bgImage || 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura21.jpg?v=1772584942';
 
   function formatPrice(amount, currency = 'CLP') {
     return new Intl.NumberFormat('es-CL', { style: 'currency', currency }).format(parseFloat(amount));

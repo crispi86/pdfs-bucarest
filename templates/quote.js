@@ -13,7 +13,10 @@ function quoteHTML(products, options = {}) {
     clientName = '', clientEmail = '', clientRut = '', clientCompany = '',
     clientRazonSocial = '', clientDireccion = '', validDays = 7, notes = '',
     productsPerPage = 3, showLinks = false, showDescription = true, showSku = false,
+    staticImages = {},
   } = options;
+
+  const LOGO = staticImages.logo || 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/logo_web.png?v=1765624776';
 
   const { dayNumber, monthName, year } = spanishDate();
   const quoteNumber = `COT-${Date.now().toString().slice(-6)}`;
@@ -193,7 +196,7 @@ function quoteHTML(products, options = {}) {
 
   <div class="q-intro">
     <div class="q-header">
-      <img class="q-logo" src="https://cdn.shopify.com/s/files/1/0814/7671/4798/files/logo_web.png?v=1765624776" alt="Bucarest Art & Antiques">
+      <img class="q-logo" src="${LOGO}" alt="Bucarest Art & Antiques">
       <div class="q-meta">
         <h1>Cotización</h1>
         <div class="q-meta-detail">
