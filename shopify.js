@@ -195,6 +195,26 @@ async function getProductMetafields(productId) {
   return result;
 }
 
+async function getFilesByKeyword(keyword) {
+  try {
+    // Intenta primero con filtro de nombre — más rápido y preciso
+    const result = await graphqlRequest(`{
+      files(first: 250, query: "filename:${keyword}") {
+        edges { node { ... on MediaImage { image { url altText } } } }
+      }
+    }`);
+    const fromSearch = (result?.data?.files?.edges || [])
+      .map(e => e.node?.image).filter(Boolean);
+    if (fromSearch.length > 0) return fromSearch;
+    // Fallback: descarga hasta 250 archivos y filtra por URL
+    const all = await getFiles();
+    return all.filter(f => f.url && f.url.toLowerCase().includes(keyword.toLowerCase()));
+  } catch(e) {
+    console.error('[shopify] getFilesByKeyword error:', e.message);
+    return [];
+  }
+}
+
 async function getFiles() {
   const token = process.env.SHOPIFY_ACCESS_TOKEN;
   const query = `{
@@ -324,4 +344,5 @@ module.exports = {
   getNextCertFolio,
   isProductInCollection,
   getAllPages,
+  getFilesByKeyword,
 };

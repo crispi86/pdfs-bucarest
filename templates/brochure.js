@@ -1,5 +1,19 @@
+const DEFAULTS = {
+  quienesTitulo: '38 años seleccionando piezas únicas con historia',
+  quienesTexto: `Bucarest Art & Antiques es una empresa familiar con más de 38 años de experiencia en el comercio de las antigüedades en Chile. Somos referentes en el mercado gracias al trabajo, esfuerzo y pasión de su fundador, Ricardo Pizarro Pacheco.
+
+Con una profunda pasión por el arte y la historia, Ricardo ha convertido Bucarest Art & Antiques en un destino de confianza para los amantes de las antigüedades. Compramos y vendemos en todo Chile, además de importar piezas únicas desde Francia, trabajando con destacadas casas de remate como Drouot, Millon & Associes y Thierry de Maigret.`,
+  europaQuote: 'Viajamos a Francia para traerle lo que no puede encontrar en ningún otro lugar de Chile.',
+  europaTexto: 'Durante más de 16 años, Ricardo Pizarro y su equipo han viajado periódicamente a Francia para adquirir piezas en las grandes casas de remate: Drouot, Millon & Associes y Thierry de Maigret. Cada viaje es una búsqueda entre bodegas y mercados de anticuarios, para traer a Chile aquellos objetos únicos que deleitarán los espacios de sus clientes. Este atributo es imposible de replicar y nos posiciona muy por encima de cualquier tienda de decoración tradicional.',
+  cierreTagline: 'Transformamos espacios corporativos en experiencias memorables a través de piezas únicas con historia.',
+};
+
 function formatPrice(amount, currency = 'CLP') {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency }).format(parseFloat(amount));
+}
+
+function paragraphs(text) {
+  return (text || '').split(/\n\n+/).filter(Boolean).map(p => `<p>${p.trim()}</p>`).join('\n');
 }
 
 function brochureHTML(products, options = {}) {
@@ -13,11 +27,24 @@ function brochureHTML(products, options = {}) {
     texturaImage = '',
     contextoImage = '',
     staticImages = {},
+    quienesTitulo,
+    quienesTexto,
+    europaQuote,
+    europaTexto,
+    cierreTagline,
   } = options;
 
   const LOGO    = staticImages.logo || 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/logo_web.png?v=1765624776';
   const TEXTURA = texturaImage || 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura21.jpg?v=1772584942';
   const CONTEXTO = contextoImage || TEXTURA;
+
+  const T = {
+    quienesTitulo: quienesTitulo || DEFAULTS.quienesTitulo,
+    quienesTexto:  quienesTexto  || DEFAULTS.quienesTexto,
+    europaQuote:   europaQuote   || DEFAULTS.europaQuote,
+    europaTexto:   europaTexto   || DEFAULTS.europaTexto,
+    cierreTagline: cierreTagline || DEFAULTS.cierreTagline,
+  };
 
   const productPages = products.map((p, i) => {
     const image = p.images?.[0]?.src || null;
@@ -71,51 +98,33 @@ function brochureHTML(products, options = {}) {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       background: #1a1a1a; padding: 80px 60px; text-align: center;
     }
-    .cover-bg {
-      position: absolute; inset: 0;
-      background-image: url('${TEXTURA}');
-      background-size: cover; background-position: center; opacity: 0.18;
-    }
-    .cover-content {
-      position: relative; z-index: 1;
-      display: flex; flex-direction: column; align-items: center; gap: 26px; max-width: 560px;
-    }
+    .cover-bg { position: absolute; inset: 0; background-image: url('${TEXTURA}'); background-size: cover; background-position: center; opacity: 0.18; }
+    .cover-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 26px; max-width: 560px; }
     .cover-logo { max-width: 200px; filter: brightness(0) invert(1); opacity: 0.92; }
     .cover-line { width: 48px; height: 1px; background: #9a7f5a; }
     .cover-tag { font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase; color: #9a7f5a; }
     .cover-title { font-size: 38px; font-weight: 300; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1.18; color: #fff; }
     .cover-sub { font-size: 14px; color: rgba(255,255,255,0.5); line-height: 1.8; font-weight: 300; max-width: 420px; }
-    .cover-company {
-      margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 22px; width: 100%;
-      font-size: 11px; color: rgba(255,255,255,0.35); letter-spacing: 0.14em; text-transform: uppercase;
-    }
+    .cover-company { margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 22px; width: 100%; font-size: 11px; color: rgba(255,255,255,0.35); letter-spacing: 0.14em; text-transform: uppercase; }
     .cover-company-name { font-size: 17px; color: rgba(255,255,255,0.82); font-weight: 300; letter-spacing: 0.05em; margin-top: 5px; }
 
     /* ── QUIÉNES SOMOS ── */
     .quienes { min-height: 100vh; display: flex; background: #f5f3f0; }
-    .quienes-img {
-      width: 55%; flex-shrink: 0;
-      background-image: url('${CONTEXTO}');
-      background-size: cover; background-position: center;
-    }
-    .quienes-text {
-      flex: 1; padding: 80px 64px;
-      display: flex; flex-direction: column; justify-content: center; gap: 22px;
-    }
+    .quienes-img { width: 55%; flex-shrink: 0; background-image: url('${CONTEXTO}'); background-size: cover; background-position: center; }
+    .quienes-text { flex: 1; padding: 80px 64px; display: flex; flex-direction: column; justify-content: center; gap: 22px; }
     .s-tag { font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: #9a7f5a; font-weight: 500; }
     .s-title { font-size: 27px; font-weight: 300; line-height: 1.32; color: #1a1a1a; }
     .s-body { font-size: 13px; line-height: 1.9; color: #666; }
+    .s-body p + p { margin-top: 14px; }
     .s-line { width: 36px; height: 1px; background: #9a7f5a; }
     .s-stats { display: flex; gap: 32px; margin-top: 6px; }
     .s-stat-num { font-size: 28px; font-weight: 300; color: #1a1a1a; display: block; line-height: 1; }
     .s-stat-label { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #9a7f5a; margin-top: 5px; display: block; }
 
     /* ── SERVICIOS ── */
-    .servicios {
-      min-height: 100vh; background: #1a1a1a; color: #fff;
-      padding: 80px 72px; display: flex; flex-direction: column; justify-content: center; gap: 52px;
-    }
+    .servicios { min-height: 100vh; background: #1a1a1a; color: #fff; padding: 80px 72px; display: flex; flex-direction: column; justify-content: center; gap: 52px; }
     .svc-header { display: flex; flex-direction: column; gap: 12px; }
+    .svc-intro { font-size: 13px; color: rgba(255,255,255,0.45); line-height: 1.85; max-width: 640px; }
     .svc-title { font-size: 30px; font-weight: 300; color: #fff; line-height: 1.25; }
     .svc-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
     .svc-block { padding: 28px 28px 28px 0; border-right: 1px solid rgba(154,127,90,0.2); }
@@ -126,10 +135,7 @@ function brochureHTML(products, options = {}) {
     .svc-list { list-style: none; font-size: 12px; color: rgba(255,255,255,0.42); line-height: 2.2; }
 
     /* ── POR QUÉ ELEGIRNOS ── */
-    .porque {
-      min-height: 100vh; background: #fff; padding: 80px 80px;
-      display: flex; flex-direction: column; justify-content: center; gap: 46px;
-    }
+    .porque { min-height: 100vh; background: #fff; padding: 80px 80px; display: flex; flex-direction: column; justify-content: center; gap: 46px; }
     .porque-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 34px 60px; }
     .porque-item { border-left: 2px solid #9a7f5a; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
     .porque-title { font-size: 14px; font-weight: 500; color: #1a1a1a; }
@@ -137,10 +143,7 @@ function brochureHTML(products, options = {}) {
     .porque-single { border-left: 2px solid #9a7f5a; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
 
     /* ── EUROPA ── */
-    .europa {
-      min-height: 100vh; background: #1a1a1a;
-      display: flex; align-items: center; justify-content: center; padding: 80px 80px; text-align: center;
-    }
+    .europa { min-height: 100vh; background: #1a1a1a; display: flex; align-items: center; justify-content: center; padding: 80px 80px; text-align: center; }
     .europa-content { display: flex; flex-direction: column; align-items: center; gap: 26px; max-width: 520px; }
     .europa-label { font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase; color: #9a7f5a; }
     .europa-quote { font-size: 25px; font-weight: 300; color: #fff; line-height: 1.5; }
@@ -149,17 +152,10 @@ function brochureHTML(products, options = {}) {
 
     /* ── PRODUCTOS ── */
     .prod-page { min-height: 100vh; display: flex; background: #f5f3f0; }
-    .prod-img {
-      width: 55%; flex-shrink: 0; background: #e8e4df;
-      overflow: hidden; display: flex; align-items: center; justify-content: center;
-    }
+    .prod-img { width: 55%; flex-shrink: 0; background: #e8e4df; overflow: hidden; display: flex; align-items: center; justify-content: center; }
     .prod-img img { width: 100%; height: 100%; object-fit: contain; display: block; }
     .prod-img-empty { width: 100%; min-height: 400px; background: #ddd8d2; }
-    .prod-text {
-      flex: 1; padding: 80px 64px;
-      display: flex; flex-direction: column; justify-content: center; gap: 18px;
-      border-left: 1px solid #ddd8d2;
-    }
+    .prod-text { flex: 1; padding: 80px 64px; display: flex; flex-direction: column; justify-content: center; gap: 18px; border-left: 1px solid #ddd8d2; }
     .prod-num { font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: #9a7f5a; }
     .prod-name { font-size: 22px; font-weight: 300; color: #1a1a1a; line-height: 1.35; }
     .prod-divider { width: 36px; height: 1px; background: #9a7f5a; }
@@ -170,10 +166,7 @@ function brochureHTML(products, options = {}) {
     .prod-meta-row strong { color: #555; font-weight: 500; margin-right: 5px; }
 
     /* ── PROCESO ── */
-    .proceso {
-      min-height: 100vh; background: #fff; padding: 80px 80px;
-      display: flex; flex-direction: column; justify-content: center; gap: 46px;
-    }
+    .proceso { min-height: 100vh; background: #fff; padding: 80px 80px; display: flex; flex-direction: column; justify-content: center; gap: 46px; }
     .proceso-steps { display: flex; flex-direction: column; }
     .proceso-step { display: flex; align-items: flex-start; gap: 28px; padding: 24px 0; border-bottom: 1px solid #e8e2d9; }
     .proceso-step:first-child { border-top: 1px solid #e8e2d9; }
@@ -183,25 +176,15 @@ function brochureHTML(products, options = {}) {
     .paso-desc { font-size: 12px; color: #888; line-height: 1.7; }
 
     /* ── CONTACTO ── */
-    .contacto {
-      min-height: 100vh; background: #1a1a1a; position: relative;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 80px 60px; text-align: center;
-    }
+    .contacto { min-height: 100vh; background: #1a1a1a; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 60px; text-align: center; }
     .contacto-bg { position: absolute; inset: 0; background-image: url('${TEXTURA}'); background-size: cover; opacity: 0.1; }
-    .contacto-content {
-      position: relative; z-index: 1;
-      display: flex; flex-direction: column; align-items: center; gap: 28px; max-width: 500px;
-    }
+    .contacto-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 28px; max-width: 500px; }
     .contacto-logo { max-width: 160px; filter: brightness(0) invert(1); opacity: 0.85; }
     .contacto-line { width: 40px; height: 1px; background: #9a7f5a; }
     .contacto-tagline { font-size: 16px; font-weight: 300; color: rgba(255,255,255,0.68); line-height: 1.75; }
     .contacto-data { font-size: 13px; color: rgba(255,255,255,0.38); line-height: 2.1; }
     .contacto-data strong { color: rgba(255,255,255,0.75); font-weight: 400; }
-    .contacto-resp {
-      border-top: 1px solid rgba(255,255,255,0.1); padding-top: 24px; width: 100%;
-      display: flex; flex-direction: column; gap: 3px;
-    }
+    .contacto-resp { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 24px; width: 100%; display: flex; flex-direction: column; gap: 3px; }
     .contacto-resp-name { font-size: 14px; color: #fff; font-weight: 300; }
     .contacto-resp-role { font-size: 10px; color: #9a7f5a; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 1px; }
     .contacto-resp-detail { font-size: 12px; color: rgba(255,255,255,0.32); margin-top: 3px; }
@@ -231,13 +214,12 @@ function brochureHTML(products, options = {}) {
     <div class="quienes-img"></div>
     <div class="quienes-text">
       <div class="s-tag">Quiénes somos</div>
-      <div class="s-title">36 años seleccionando piezas únicas con historia</div>
+      <div class="s-title">${T.quienesTitulo}</div>
       <div class="s-line"></div>
-      <div class="s-body">Somos una galería especializada en arte, antigüedades y objetos de colección seleccionados en Chile y Europa. Trabajamos con piezas únicas que aportan carácter, identidad y distinción a espacios residenciales y corporativos.</div>
-      <div class="s-body">Cada objeto que ofrecemos ha sido elegido personalmente por nuestros directores, con criterio estético, histórico y de calidad excepcional.</div>
+      <div class="s-body">${paragraphs(T.quienesTexto)}</div>
       <div class="s-stats">
         <div>
-          <span class="s-stat-num">36</span>
+          <span class="s-stat-num">38</span>
           <span class="s-stat-label">años de experiencia</span>
         </div>
         <div>
@@ -245,8 +227,8 @@ function brochureHTML(products, options = {}) {
           <span class="s-stat-label">locales en Santiago</span>
         </div>
         <div>
-          <span class="s-stat-num">∞</span>
-          <span class="s-stat-label">piezas únicas</span>
+          <span class="s-stat-num">16</span>
+          <span class="s-stat-label">años importando desde Francia</span>
         </div>
       </div>
     </div>
@@ -256,40 +238,41 @@ function brochureHTML(products, options = {}) {
   <div class="servicios page">
     <div class="svc-header">
       <div class="s-tag">Servicios para empresas</div>
-      <div class="svc-title">Todo lo que necesita para transformar<br>sus espacios y reconocimientos.</div>
+      <div class="svc-title">Decora con Historia.<br>Impresiona con Distinción.</div>
+      <div class="svc-intro">En Bucarest Art &amp; Antiques entendemos que los espacios corporativos comunican valores antes de que se pronuncie una sola palabra. Por eso, ofrecemos a empresas e instituciones una selección incomparable de antigüedades francesas, pinturas chilenas, alfombras persas y objetos de época — piezas únicas capaces de transformar una sala de directorio, un salón de recepciones o un espacio institucional en un entorno de verdadero prestigio.</div>
     </div>
     <div class="svc-grid">
       <div class="svc-block">
         <span class="svc-num">01</span>
-        <div class="svc-name">Mobiliario corporativo de alta gama</div>
+        <div class="svc-name">Decoración y mobiliario</div>
         <ul class="svc-list">
-          <li>Oficinas ejecutivas</li>
-          <li>Salas de reuniones</li>
-          <li>Recepciones y lobbies</li>
-          <li>Hoteles y restaurantes</li>
-          <li>Proyectos inmobiliarios premium</li>
+          <li>Mobiliario europeo (escritorios,<br>cajoneras, sillones)</li>
+          <li>Pintura (marinas, paisajes, retratos)</li>
+          <li>Esculturas (bronces, mármoles)</li>
+          <li>Alfombras persas</li>
+          <li>Objetos decorativos de época</li>
         </ul>
       </div>
       <div class="svc-block">
         <span class="svc-num">02</span>
-        <div class="svc-name">Decoración corporativa exclusiva</div>
+        <div class="svc-name">Proyectos corporativos</div>
         <ul class="svc-list">
-          <li>Cuadros y arte chileno</li>
-          <li>Esculturas y bronces</li>
-          <li>Espejos y luminarias antiguas</li>
-          <li>Alfombras persas</li>
-          <li>Objetos decorativos únicos</li>
+          <li>Oficinas ejecutivas</li>
+          <li>Salas de directorio</li>
+          <li>Recepciones y lobbies</li>
+          <li>Hoteles y restaurantes premium</li>
+          <li>Embajadas y organismos públicos</li>
         </ul>
       </div>
       <div class="svc-block">
         <span class="svc-num">03</span>
-        <div class="svc-name">Regalos corporativos exclusivos</div>
+        <div class="svc-name">Regalos corporativos premium</div>
         <ul class="svc-list">
-          <li>Clientes y socios VIP</li>
-          <li>Reconocimientos empresariales</li>
-          <li>Aniversarios corporativos</li>
-          <li>Inauguraciones y eventos</li>
-          <li>Regalos para equipos directivos</li>
+          <li>Reconocimientos a ejecutivos</li>
+          <li>Obsequios para clientes VIP</li>
+          <li>Celebraciones institucionales</li>
+          <li>Aniversarios empresariales</li>
+          <li>Hitos y eventos especiales</li>
         </ul>
       </div>
     </div>
@@ -312,11 +295,11 @@ function brochureHTML(products, options = {}) {
       </div>
       <div class="porque-item">
         <div class="porque-title">Curaduría especializada</div>
-        <div class="porque-desc">Seleccionamos personalmente cada objeto con criterio estético y de calidad, construido durante 36 años de trayectoria.</div>
+        <div class="porque-desc">Seleccionamos personalmente cada objeto con criterio estético y de calidad, construido durante 38 años de trayectoria.</div>
       </div>
       <div class="porque-item">
-        <div class="porque-title">Importación directa desde Europa</div>
-        <div class="porque-desc">Viajes periódicos a Francia y Europa para traer antigüedades y arte exclusivo que no está disponible en el mercado local.</div>
+        <div class="porque-title">Importación directa desde Francia</div>
+        <div class="porque-desc">Más de 16 años de viajes periódicos para adquirir piezas en Drouot, Millon &amp; Associes y Thierry de Maigret — lo que ningún otro proveedor chileno puede ofrecer.</div>
       </div>
     </div>
     <div class="porque-single">
@@ -325,14 +308,14 @@ function brochureHTML(products, options = {}) {
     </div>
   </div>
 
-  <!-- EUROPA -->
+  <!-- IMPORTACIÓN DESDE EUROPA -->
   <div class="europa page">
     <div class="europa-content">
       <div class="europa-label">Selección e importación directa</div>
       <div class="europa-line"></div>
-      <div class="europa-quote">Viajamos a Europa para traerle lo que no puede encontrar en ningún otro lugar de Chile.</div>
+      <div class="europa-quote">${T.europaQuote}</div>
       <div class="europa-line"></div>
-      <div class="europa-sub">Nuestros directores recorren personalmente los mercados de antigüedades y galerías de Francia, España e Italia, seleccionando piezas que combinan historia, calidad y exclusividad. Este atributo es imposible de replicar y nos posiciona muy por encima de cualquier tienda de decoración tradicional.</div>
+      <div class="europa-sub">${T.europaTexto}</div>
     </div>
   </div>
 
@@ -389,7 +372,7 @@ function brochureHTML(products, options = {}) {
     <div class="contacto-bg"></div>
     <div class="contacto-content">
       <img src="${LOGO}" alt="Bucarest Art &amp; Antiques" class="contacto-logo">
-      <div class="contacto-tagline">Transformamos espacios corporativos en experiencias memorables a través de piezas únicas con historia.</div>
+      <div class="contacto-tagline">${T.cierreTagline}</div>
       <div class="contacto-line"></div>
       <div class="contacto-data">
         <strong>Bucarest Art &amp; Antiques</strong><br>
@@ -410,4 +393,4 @@ function brochureHTML(products, options = {}) {
 </html>`;
 }
 
-module.exports = { brochureHTML };
+module.exports = { brochureHTML, BROCHURE_DEFAULTS: DEFAULTS };
