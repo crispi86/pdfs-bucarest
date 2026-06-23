@@ -828,6 +828,7 @@ function adminUI(host) {
     .ppp-btn.active{border-color:#9a7f5a;background:#faf8f5;color:#9a7f5a;font-weight:500}
     .avail-btn{padding:4px 12px;border:1px solid #ddd6cc;background:#fff;font-size:11px;cursor:pointer;font-family:inherit;letter-spacing:0.06em;text-transform:uppercase;border-radius:12px;color:#666;transition:all 0.15s}
     .avail-btn.active{border-color:#9a7f5a;background:#faf8f5;color:#9a7f5a}
+    .texture-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:6px;margin-top:8px}
     .cert-mode-tabs{display:flex;gap:0;margin-bottom:24px;border-bottom:2px solid #e8e2d9}
     .cert-mode-tab{background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;padding:10px 24px;font-size:13px;font-family:inherit;color:#999;cursor:pointer;letter-spacing:0.06em;transition:all 0.15s}
     .cert-mode-tab:hover{color:#555}
@@ -841,10 +842,9 @@ function adminUI(host) {
 <div class="topnav">
   <div class="topnav-logo">Bucarest Art &amp; Antiques</div>
   <button class="nav-btn active" onclick="showPage('certificates')">Certificados</button>
-  <button class="nav-btn" onclick="showPage('catalog')">Catálogos</button>
+  <button class="nav-btn" onclick="showPage('catalog')">Brochures y Catálogos</button>
   <button class="nav-btn" onclick="showPage('quote')">Cotizaciones</button>
   <button class="nav-btn" onclick="showPage('receipt')">Comprobantes</button>
-  <button class="nav-btn" onclick="showPage('brochure')">Brochure</button>
 </div>
 
 <div class="main">
@@ -1028,9 +1028,17 @@ function adminUI(host) {
     <div class="msg" id="cert-msg"></div>
   </div>
 
-  <!-- CATÁLOGOS -->
+  <!-- BROCHURES Y CATÁLOGOS -->
   <div class="page" id="page-catalog">
-    <h1>Catálogos</h1>
+    <h1>Brochures y Catálogos</h1>
+
+    <div class="cert-mode-tabs" style="margin-bottom:28px">
+      <button class="cert-mode-tab active" id="catbroch-tab-catalog" onclick="switchCatBrochMode('catalog')">Catálogos</button>
+      <button class="cert-mode-tab" id="catbroch-tab-brochure" onclick="switchCatBrochMode('brochure')">Brochure Corporativo</button>
+    </div>
+
+    <!-- SUB: CATÁLOGOS -->
+    <div id="catbroch-mode-catalog">
     <p class="subtitle">Genera catálogos PDF filtrando productos por colección, tag, título o metacampos.</p>
 
     <div class="card">
@@ -1102,9 +1110,11 @@ function adminUI(host) {
       <button class="btn btn-secondary" onclick="generate('catalog', true)">Enviar a correo interno</button>
     </div>
     <div class="msg" id="catalog-msg"></div>
-  </div>
+    </div><!-- /catbroch-mode-catalog -->
 
-  <!-- COTIZACIONES -->
+    <!-- SUB: BROCHURE -->
+    <div id="catbroch-mode-brochure" style="display:none">
+    <p class="subtitle">Propuesta de negocios para empresas — arte, decoración y regalos corporativos exclusivos.</p>
   <div class="page" id="page-quote">
     <h1>Cotizaciones</h1>
     <p class="subtitle">Genera cotizaciones con o sin datos del cliente.</p>
@@ -1212,11 +1222,6 @@ function adminUI(host) {
     <div class="msg" id="receipt-msg"></div>
   </div>
 
-  <!-- BROCHURE CORPORATIVO -->
-  <div class="page" id="page-brochure">
-    <h1>Brochure Corporativo</h1>
-    <p class="subtitle">Propuesta de negocios para empresas — arte, decoración y regalos corporativos exclusivos.</p>
-
     <div class="card">
       <span class="section-label">Empresa destinataria</span>
       <label>Nombre de la empresa <input id="brochure-company" placeholder="Ej: Constructora XYZ S.A."></label>
@@ -1322,7 +1327,9 @@ function adminUI(host) {
       <button class="btn btn-primary" onclick="generateBrochure()">Descargar brochure</button>
     </div>
     <div class="msg" id="brochure-msg"></div>
-  </div>
+    </div><!-- /catbroch-mode-brochure -->
+
+  </div><!-- /page-catalog -->
 
 </div>
 
@@ -1635,6 +1642,13 @@ async function generate(type, sendEmail = false) {
   } catch(e) {
     showMsg(prefix, 'Error generando el documento.', 'err');
   }
+}
+
+function switchCatBrochMode(mode) {
+  document.getElementById('catbroch-mode-catalog').style.display  = mode === 'catalog'  ? 'block' : 'none';
+  document.getElementById('catbroch-mode-brochure').style.display = mode === 'brochure' ? 'block' : 'none';
+  document.getElementById('catbroch-tab-catalog').classList.toggle('active',  mode === 'catalog');
+  document.getElementById('catbroch-tab-brochure').classList.toggle('active', mode === 'brochure');
 }
 
 function switchCertMode(mode) {
