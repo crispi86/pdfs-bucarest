@@ -30,6 +30,7 @@ async function generatePDF(html, options = {}) {
     await page.setContent(html, { waitUntil: 'networkidle2', timeout: 30000 });
     return await page.pdf({
       format: options.format || 'A4',
+      landscape: options.landscape || false,
       printBackground: true,
       margin: options.margin || { top: '0', right: '0', bottom: '0', left: '0' },
     });

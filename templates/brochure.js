@@ -1,13 +1,3 @@
-const DEFAULTS = {
-  quienesTitulo: '38 años seleccionando piezas únicas con historia',
-  quienesTexto: `Bucarest Art & Antiques es una empresa familiar con más de 38 años de experiencia en el comercio de las antigüedades en Chile. Somos referentes en el mercado gracias al trabajo, esfuerzo y pasión de su fundador, Ricardo Pizarro Pacheco.
-
-Con una profunda pasión por el arte y la historia, Ricardo ha convertido Bucarest Art & Antiques en un destino de confianza para los amantes de las antigüedades. Compramos y vendemos en todo Chile, además de importar piezas únicas desde Francia, trabajando con destacadas casas de remate como Drouot, Millon & Associes y Thierry de Maigret.`,
-  europaQuote: 'Viajamos a Francia para traerle lo que no puede encontrar en ningún otro lugar de Chile.',
-  europaTexto: 'Durante más de 16 años, Ricardo Pizarro y su equipo han viajado periódicamente a Francia para adquirir piezas en las grandes casas de remate: Drouot, Millon & Associes y Thierry de Maigret. Cada viaje es una búsqueda entre bodegas y mercados de anticuarios, para traer a Chile aquellos objetos únicos que deleitarán los espacios de sus clientes. Este atributo es imposible de replicar y nos posiciona muy por encima de cualquier tienda de decoración tradicional.',
-  cierreTagline: 'Transformamos espacios corporativos en experiencias memorables a través de piezas únicas con historia.',
-};
-
 function formatPrice(amount, currency = 'CLP') {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency }).format(parseFloat(amount));
 }
@@ -27,24 +17,25 @@ function brochureHTML(products, options = {}) {
     texturaImage = '',
     contextoImage = '',
     staticImages = {},
-    quienesTitulo,
-    quienesTexto,
-    europaQuote,
-    europaTexto,
-    cierreTagline,
+    proyecto = '',
   } = options;
 
   const LOGO    = staticImages.logo || 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/logo_web.png?v=1765624776';
   const TEXTURA = texturaImage || 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura21.jpg?v=1772584942';
   const CONTEXTO = contextoImage || TEXTURA;
 
-  const T = {
-    quienesTitulo: quienesTitulo || DEFAULTS.quienesTitulo,
-    quienesTexto:  quienesTexto  || DEFAULTS.quienesTexto,
-    europaQuote:   europaQuote   || DEFAULTS.europaQuote,
-    europaTexto:   europaTexto   || DEFAULTS.europaTexto,
-    cierreTagline: cierreTagline || DEFAULTS.cierreTagline,
-  };
+  // Página "El Proyecto" — solo si el usuario escribió algo
+  const proyectoPage = proyecto.trim() ? `
+  <div class="project-page page">
+    <div class="project-left">
+      <div class="project-label">El Proyecto</div>
+      <div class="project-line"></div>
+      ${companyName ? `<div class="project-company">${companyName}</div>` : ''}
+    </div>
+    <div class="project-right">
+      <div class="project-body">${paragraphs(proyecto)}</div>
+    </div>
+  </div>` : '';
 
   const productPages = products.map((p, i) => {
     const image = p.images?.[0]?.src || null;
@@ -55,8 +46,8 @@ function brochureHTML(products, options = {}) {
     const meta = p._metafields || {};
 
     const metaRows = [
-      meta.origen    && `<div class="prod-meta-row"><strong>Origen:</strong> ${meta.origen}</div>`,
-      meta.epocas    && `<div class="prod-meta-row"><strong>Época:</strong> ${meta.epocas}</div>`,
+      meta.origen     && `<div class="prod-meta-row"><strong>Origen:</strong> ${meta.origen}</div>`,
+      meta.epocas     && `<div class="prod-meta-row"><strong>Época:</strong> ${meta.epocas}</div>`,
       (meta.alto || meta.ancho) && `<div class="prod-meta-row"><strong>Dimensiones:</strong> ${[meta.alto && `Alto ${meta.alto}`, meta.ancho && `Ancho ${meta.ancho}`].filter(Boolean).join(' · ')}</div>`,
       meta.materiales && `<div class="prod-meta-row"><strong>Materiales:</strong> ${meta.materiales}</div>`,
     ].filter(Boolean).join('');
@@ -64,16 +55,14 @@ function brochureHTML(products, options = {}) {
     return `
     <div class="prod-page page">
       <div class="prod-img">
-        ${image
-          ? `<img src="${image}" alt="${p.title}">`
-          : '<div class="prod-img-empty"></div>'}
+        ${image ? `<img src="${image}" alt="${p.title}">` : '<div class="prod-img-empty"></div>'}
       </div>
       <div class="prod-text">
         <div class="prod-num">${String(i + 1).padStart(2, '0')} — Pieza seleccionada</div>
         <h2 class="prod-name">${p.title}</h2>
         <div class="prod-divider"></div>
         ${showPrices && price ? `<div class="prod-price">${formatPrice(price)}</div>` : ''}
-        ${desc ? `<p class="prod-desc">${desc.length > 320 ? desc.substring(0, 320) + '…' : desc}</p>` : ''}
+        ${desc ? `<p class="prod-desc">${desc.length > 380 ? desc.substring(0, 380) + '…' : desc}</p>` : ''}
         ${metaRows ? `<div class="prod-meta">${metaRows}</div>` : ''}
       </div>
     </div>`;
@@ -89,113 +78,152 @@ function brochureHTML(products, options = {}) {
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Hanken Grotesk", sans-serif !important; }
     body { background: #1a1a1a; color: #1a1a1a; }
 
+    /* Landscape A4: 297mm × 210mm */
     .page { page-break-after: always; width: 100%; min-height: 100vh; }
     .page:last-child { page-break-after: avoid; }
 
     /* ── PORTADA ── */
     .cover {
       min-height: 100vh; position: relative;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      background: #1a1a1a; padding: 80px 60px; text-align: center;
+      display: flex; flex-direction: row; align-items: stretch;
+      background: #1a1a1a;
     }
-    .cover-bg { position: absolute; inset: 0; background-image: url('${TEXTURA}'); background-size: cover; background-position: center; opacity: 0.18; }
-    .cover-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 26px; max-width: 560px; }
-    .cover-logo { max-width: 200px; filter: brightness(0) invert(1); opacity: 0.92; }
-    .cover-line { width: 48px; height: 1px; background: #9a7f5a; }
-    .cover-tag { font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase; color: #9a7f5a; }
-    .cover-title { font-size: 38px; font-weight: 300; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1.18; color: #fff; }
-    .cover-sub { font-size: 14px; color: rgba(255,255,255,0.5); line-height: 1.8; font-weight: 300; max-width: 420px; }
-    .cover-company { margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 22px; width: 100%; font-size: 11px; color: rgba(255,255,255,0.35); letter-spacing: 0.14em; text-transform: uppercase; }
-    .cover-company-name { font-size: 17px; color: rgba(255,255,255,0.82); font-weight: 300; letter-spacing: 0.05em; margin-top: 5px; }
+    .cover-bg-half {
+      width: 48%; flex-shrink: 0; position: relative; overflow: hidden;
+    }
+    .cover-bg-img {
+      position: absolute; inset: 0;
+      background-image: url('${TEXTURA}');
+      background-size: cover; background-position: center; opacity: 0.35;
+    }
+    .cover-text-half {
+      flex: 1; display: flex; flex-direction: column;
+      justify-content: center; padding: 60px 72px 60px 64px;
+      background: #1a1a1a;
+    }
+    .cover-logo { max-width: 180px; filter: brightness(0) invert(1); opacity: 0.88; margin-bottom: 36px; }
+    .cover-line { width: 44px; height: 1px; background: #9a7f5a; margin-bottom: 28px; }
+    .cover-tag { font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase; color: #9a7f5a; margin-bottom: 16px; }
+    .cover-title { font-size: 34px; font-weight: 300; letter-spacing: 0.03em; text-transform: uppercase; line-height: 1.2; color: #fff; margin-bottom: 20px; }
+    .cover-sub { font-size: 13px; color: rgba(255,255,255,0.45); line-height: 1.85; font-weight: 300; max-width: 360px; }
+    .cover-company {
+      margin-top: 36px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 22px;
+      font-size: 11px; color: rgba(255,255,255,0.35); letter-spacing: 0.14em; text-transform: uppercase;
+    }
+    .cover-company-name { font-size: 16px; color: rgba(255,255,255,0.82); font-weight: 300; letter-spacing: 0.05em; margin-top: 5px; }
+
+    /* ── EL PROYECTO ── */
+    .project-page { min-height: 100vh; display: flex; background: #f5f3f0; }
+    .project-left {
+      width: 34%; flex-shrink: 0; background: #1a1a1a; padding: 60px 52px;
+      display: flex; flex-direction: column; justify-content: center; gap: 18px;
+    }
+    .project-label { font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase; color: #9a7f5a; }
+    .project-line { width: 36px; height: 1px; background: #9a7f5a; }
+    .project-company { font-size: 22px; font-weight: 300; color: #fff; line-height: 1.35; margin-top: 8px; }
+    .project-right {
+      flex: 1; padding: 60px 72px 60px 60px;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+    .project-body { font-size: 14px; line-height: 2; color: #444; }
+    .project-body p + p { margin-top: 18px; }
 
     /* ── QUIÉNES SOMOS ── */
     .quienes { min-height: 100vh; display: flex; background: #f5f3f0; }
-    .quienes-img { width: 55%; flex-shrink: 0; background-image: url('${CONTEXTO}'); background-size: cover; background-position: center; }
-    .quienes-text { flex: 1; padding: 80px 64px; display: flex; flex-direction: column; justify-content: center; gap: 22px; }
+    .quienes-img { width: 48%; flex-shrink: 0; background-image: url('${CONTEXTO}'); background-size: cover; background-position: center; }
+    .quienes-text { flex: 1; padding: 60px 72px 60px 60px; display: flex; flex-direction: column; justify-content: center; gap: 20px; }
     .s-tag { font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: #9a7f5a; font-weight: 500; }
-    .s-title { font-size: 27px; font-weight: 300; line-height: 1.32; color: #1a1a1a; }
-    .s-body { font-size: 13px; line-height: 1.9; color: #666; }
-    .s-body p + p { margin-top: 14px; }
+    .s-title { font-size: 24px; font-weight: 300; line-height: 1.35; color: #1a1a1a; }
+    .s-body { font-size: 12px; line-height: 1.9; color: #666; }
+    .s-body p + p { margin-top: 12px; }
     .s-line { width: 36px; height: 1px; background: #9a7f5a; }
-    .s-stats { display: flex; gap: 32px; margin-top: 6px; }
-    .s-stat-num { font-size: 28px; font-weight: 300; color: #1a1a1a; display: block; line-height: 1; }
-    .s-stat-label { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #9a7f5a; margin-top: 5px; display: block; }
+    .s-stats { display: flex; gap: 28px; margin-top: 4px; }
+    .s-stat-num { font-size: 26px; font-weight: 300; color: #1a1a1a; display: block; line-height: 1; }
+    .s-stat-label { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #9a7f5a; margin-top: 4px; display: block; }
 
     /* ── SERVICIOS ── */
-    .servicios { min-height: 100vh; background: #1a1a1a; color: #fff; padding: 80px 72px; display: flex; flex-direction: column; justify-content: center; gap: 52px; }
-    .svc-header { display: flex; flex-direction: column; gap: 12px; }
-    .svc-intro { font-size: 13px; color: rgba(255,255,255,0.45); line-height: 1.85; max-width: 640px; }
-    .svc-title { font-size: 30px; font-weight: 300; color: #fff; line-height: 1.25; }
-    .svc-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
-    .svc-block { padding: 28px 28px 28px 0; border-right: 1px solid rgba(154,127,90,0.2); }
+    .servicios { min-height: 100vh; background: #1a1a1a; color: #fff; padding: 60px 80px; display: flex; flex-direction: column; justify-content: center; gap: 44px; }
+    .svc-header { display: flex; flex-direction: column; gap: 10px; }
+    .svc-intro { font-size: 12px; color: rgba(255,255,255,0.4); line-height: 1.85; max-width: 680px; }
+    .svc-title { font-size: 26px; font-weight: 300; color: #fff; line-height: 1.25; }
+    .svc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
+    .svc-block { padding: 24px 28px 24px 0; border-right: 1px solid rgba(154,127,90,0.2); }
     .svc-block:last-child { border-right: none; padding-right: 0; }
     .svc-block:not(:first-child) { padding-left: 28px; }
-    .svc-num { font-size: 10px; letter-spacing: 0.2em; color: #9a7f5a; margin-bottom: 14px; display: block; }
-    .svc-name { font-size: 15px; font-weight: 300; color: #fff; margin-bottom: 14px; line-height: 1.35; }
-    .svc-list { list-style: none; font-size: 12px; color: rgba(255,255,255,0.42); line-height: 2.2; }
+    .svc-num { font-size: 10px; letter-spacing: 0.2em; color: #9a7f5a; margin-bottom: 10px; display: block; }
+    .svc-name { font-size: 13px; font-weight: 300; color: #fff; margin-bottom: 12px; line-height: 1.35; }
+    .svc-list { list-style: none; font-size: 11px; color: rgba(255,255,255,0.4); line-height: 2.1; }
 
     /* ── POR QUÉ ELEGIRNOS ── */
-    .porque { min-height: 100vh; background: #fff; padding: 80px 80px; display: flex; flex-direction: column; justify-content: center; gap: 46px; }
-    .porque-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 34px 60px; }
-    .porque-item { border-left: 2px solid #9a7f5a; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
-    .porque-title { font-size: 14px; font-weight: 500; color: #1a1a1a; }
-    .porque-desc { font-size: 12px; color: #777; line-height: 1.8; }
-    .porque-single { border-left: 2px solid #9a7f5a; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+    .porque { min-height: 100vh; background: #fff; padding: 60px 80px; display: flex; flex-direction: column; justify-content: center; gap: 40px; }
+    .porque-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px 80px; }
+    .porque-item { border-left: 2px solid #9a7f5a; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+    .porque-title { font-size: 13px; font-weight: 500; color: #1a1a1a; }
+    .porque-desc { font-size: 11px; color: #777; line-height: 1.8; }
+    .porque-single { border-left: 2px solid #9a7f5a; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
 
     /* ── EUROPA ── */
-    .europa { min-height: 100vh; background: #1a1a1a; display: flex; align-items: center; justify-content: center; padding: 80px 80px; text-align: center; }
-    .europa-content { display: flex; flex-direction: column; align-items: center; gap: 26px; max-width: 520px; }
+    .europa { min-height: 100vh; background: #1a1a1a; display: flex; align-items: center; justify-content: center; padding: 60px 120px; text-align: center; }
+    .europa-content { display: flex; flex-direction: column; align-items: center; gap: 24px; max-width: 620px; }
     .europa-label { font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase; color: #9a7f5a; }
-    .europa-quote { font-size: 25px; font-weight: 300; color: #fff; line-height: 1.5; }
+    .europa-quote { font-size: 24px; font-weight: 300; color: #fff; line-height: 1.55; }
     .europa-line { width: 40px; height: 1px; background: #9a7f5a; }
-    .europa-sub { font-size: 13px; color: rgba(255,255,255,0.42); line-height: 1.85; }
+    .europa-sub { font-size: 12px; color: rgba(255,255,255,0.4); line-height: 1.85; }
 
-    /* ── PRODUCTOS ── */
+    /* ── PÁGINAS DE PRODUCTO ── */
     .prod-page { min-height: 100vh; display: flex; background: #f5f3f0; }
-    .prod-img { width: 55%; flex-shrink: 0; background: #e8e4df; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .prod-img { width: 52%; flex-shrink: 0; background: #e8e4df; overflow: hidden; display: flex; align-items: center; justify-content: center; }
     .prod-img img { width: 100%; height: 100%; object-fit: contain; display: block; }
-    .prod-img-empty { width: 100%; min-height: 400px; background: #ddd8d2; }
-    .prod-text { flex: 1; padding: 80px 64px; display: flex; flex-direction: column; justify-content: center; gap: 18px; border-left: 1px solid #ddd8d2; }
+    .prod-img-empty { width: 100%; min-height: 100%; background: #ddd8d2; }
+    .prod-text { flex: 1; padding: 60px 72px 60px 60px; display: flex; flex-direction: column; justify-content: center; gap: 16px; border-left: 1px solid #ddd8d2; }
     .prod-num { font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: #9a7f5a; }
-    .prod-name { font-size: 22px; font-weight: 300; color: #1a1a1a; line-height: 1.35; }
+    .prod-name { font-size: 20px; font-weight: 300; color: #1a1a1a; line-height: 1.35; }
     .prod-divider { width: 36px; height: 1px; background: #9a7f5a; }
-    .prod-price { font-size: 16px; color: #9a7f5a; font-weight: 400; }
+    .prod-price { font-size: 15px; color: #9a7f5a; font-weight: 400; }
     .prod-desc { font-size: 12px; color: #777; line-height: 1.85; }
-    .prod-meta { display: flex; flex-direction: column; gap: 5px; border-top: 1px solid #e8e2d9; padding-top: 16px; margin-top: 4px; }
+    .prod-meta { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid #e8e2d9; padding-top: 14px; margin-top: 2px; }
     .prod-meta-row { font-size: 11px; color: #999; }
     .prod-meta-row strong { color: #555; font-weight: 500; margin-right: 5px; }
 
     /* ── PROCESO ── */
-    .proceso { min-height: 100vh; background: #fff; padding: 80px 80px; display: flex; flex-direction: column; justify-content: center; gap: 46px; }
+    .proceso { min-height: 100vh; background: #fff; padding: 60px 80px; display: flex; flex-direction: column; justify-content: center; gap: 40px; }
     .proceso-steps { display: flex; flex-direction: column; }
-    .proceso-step { display: flex; align-items: flex-start; gap: 28px; padding: 24px 0; border-bottom: 1px solid #e8e2d9; }
+    .proceso-step { display: flex; align-items: flex-start; gap: 28px; padding: 20px 0; border-bottom: 1px solid #e8e2d9; }
     .proceso-step:first-child { border-top: 1px solid #e8e2d9; }
-    .paso-num { font-size: 11px; letter-spacing: 0.18em; color: #9a7f5a; min-width: 28px; padding-top: 3px; flex-shrink: 0; }
-    .paso-content { display: flex; flex-direction: column; gap: 4px; }
-    .paso-title { font-size: 15px; font-weight: 400; color: #1a1a1a; }
-    .paso-desc { font-size: 12px; color: #888; line-height: 1.7; }
+    .paso-num { font-size: 11px; letter-spacing: 0.18em; color: #9a7f5a; min-width: 28px; padding-top: 2px; flex-shrink: 0; }
+    .paso-content { display: flex; flex-direction: column; gap: 3px; }
+    .paso-title { font-size: 14px; font-weight: 400; color: #1a1a1a; }
+    .paso-desc { font-size: 11px; color: #888; line-height: 1.7; }
 
     /* ── CONTACTO ── */
-    .contacto { min-height: 100vh; background: #1a1a1a; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 60px; text-align: center; }
+    .contacto { min-height: 100vh; background: #1a1a1a; position: relative; display: flex; flex-direction: row; align-items: stretch; }
     .contacto-bg { position: absolute; inset: 0; background-image: url('${TEXTURA}'); background-size: cover; opacity: 0.1; }
-    .contacto-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 28px; max-width: 500px; }
-    .contacto-logo { max-width: 160px; filter: brightness(0) invert(1); opacity: 0.85; }
+    .contacto-deco { width: 42%; flex-shrink: 0; position: relative; overflow: hidden; }
+    .contacto-deco-bg { position: absolute; inset: 0; background-image: url('${CONTEXTO}'); background-size: cover; background-position: center; opacity: 0.18; }
+    .contacto-content {
+      flex: 1; position: relative; z-index: 1;
+      display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
+      padding: 60px 80px 60px 64px; gap: 26px;
+    }
+    .contacto-logo { max-width: 150px; filter: brightness(0) invert(1); opacity: 0.85; }
     .contacto-line { width: 40px; height: 1px; background: #9a7f5a; }
-    .contacto-tagline { font-size: 16px; font-weight: 300; color: rgba(255,255,255,0.68); line-height: 1.75; }
-    .contacto-data { font-size: 13px; color: rgba(255,255,255,0.38); line-height: 2.1; }
+    .contacto-tagline { font-size: 15px; font-weight: 300; color: rgba(255,255,255,0.68); line-height: 1.75; max-width: 400px; }
+    .contacto-data { font-size: 12px; color: rgba(255,255,255,0.38); line-height: 2.1; }
     .contacto-data strong { color: rgba(255,255,255,0.75); font-weight: 400; }
-    .contacto-resp { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 24px; width: 100%; display: flex; flex-direction: column; gap: 3px; }
-    .contacto-resp-name { font-size: 14px; color: #fff; font-weight: 300; }
+    .contacto-resp { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; display: flex; flex-direction: column; gap: 3px; }
+    .contacto-resp-name { font-size: 13px; color: #fff; font-weight: 300; }
     .contacto-resp-role { font-size: 10px; color: #9a7f5a; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 1px; }
-    .contacto-resp-detail { font-size: 12px; color: rgba(255,255,255,0.32); margin-top: 3px; }
+    .contacto-resp-detail { font-size: 11px; color: rgba(255,255,255,0.32); margin-top: 2px; }
   </style>
 </head>
 <body>
 
   <!-- PORTADA -->
   <div class="cover page">
-    <div class="cover-bg"></div>
-    <div class="cover-content">
+    <div class="cover-bg-half">
+      <div class="cover-bg-img"></div>
+    </div>
+    <div class="cover-text-half">
       <img src="${LOGO}" alt="Bucarest Art &amp; Antiques" class="cover-logo">
       <div class="cover-line"></div>
       <div class="cover-tag">Propuesta Corporativa</div>
@@ -209,27 +237,23 @@ function brochureHTML(products, options = {}) {
     </div>
   </div>
 
+  ${proyectoPage}
+
   <!-- QUIÉNES SOMOS -->
   <div class="quienes page">
     <div class="quienes-img"></div>
     <div class="quienes-text">
       <div class="s-tag">Quiénes somos</div>
-      <div class="s-title">${T.quienesTitulo}</div>
+      <div class="s-title">38 años seleccionando piezas únicas con historia</div>
       <div class="s-line"></div>
-      <div class="s-body">${paragraphs(T.quienesTexto)}</div>
+      <div class="s-body">
+        <p>Bucarest Art &amp; Antiques es una empresa familiar con más de 38 años de experiencia en el comercio de las antigüedades en Chile. Somos referentes en el mercado gracias al trabajo, esfuerzo y pasión de su fundador, Ricardo Pizarro Pacheco.</p>
+        <p>Con una profunda pasión por el arte y la historia, Ricardo ha convertido Bucarest Art &amp; Antiques en un destino de confianza para los amantes de las antigüedades. Importamos piezas únicas desde Francia, trabajando con destacadas casas de remate como Drouot, Millon &amp; Associes y Thierry de Maigret.</p>
+      </div>
       <div class="s-stats">
-        <div>
-          <span class="s-stat-num">38</span>
-          <span class="s-stat-label">años de experiencia</span>
-        </div>
-        <div>
-          <span class="s-stat-num">2</span>
-          <span class="s-stat-label">locales en Santiago</span>
-        </div>
-        <div>
-          <span class="s-stat-num">16</span>
-          <span class="s-stat-label">años importando desde Francia</span>
-        </div>
+        <div><span class="s-stat-num">38</span><span class="s-stat-label">años de experiencia</span></div>
+        <div><span class="s-stat-num">2</span><span class="s-stat-label">locales en Santiago</span></div>
+        <div><span class="s-stat-num">16</span><span class="s-stat-label">años importando desde Francia</span></div>
       </div>
     </div>
   </div>
@@ -238,7 +262,7 @@ function brochureHTML(products, options = {}) {
   <div class="servicios page">
     <div class="svc-header">
       <div class="s-tag">Servicios para empresas</div>
-      <div class="svc-title">Decora con Historia.<br>Impresiona con Distinción.</div>
+      <div class="svc-title">Decora con Historia. Impresiona con Distinción.</div>
       <div class="svc-intro">En Bucarest Art &amp; Antiques entendemos que los espacios corporativos comunican valores antes de que se pronuncie una sola palabra. Por eso, ofrecemos a empresas e instituciones una selección incomparable de antigüedades francesas, pinturas chilenas, alfombras persas y objetos de época — piezas únicas capaces de transformar una sala de directorio, un salón de recepciones o un espacio institucional en un entorno de verdadero prestigio.</div>
     </div>
     <div class="svc-grid">
@@ -246,7 +270,7 @@ function brochureHTML(products, options = {}) {
         <span class="svc-num">01</span>
         <div class="svc-name">Decoración y mobiliario</div>
         <ul class="svc-list">
-          <li>Mobiliario europeo (escritorios,<br>cajoneras, sillones)</li>
+          <li>Mobiliario europeo (escritorios, cajoneras, sillones)</li>
           <li>Pintura (marinas, paisajes, retratos)</li>
           <li>Esculturas (bronces, mármoles)</li>
           <li>Alfombras persas</li>
@@ -282,7 +306,7 @@ function brochureHTML(products, options = {}) {
   <div class="porque page">
     <div>
       <div class="s-tag">Por qué elegirnos</div>
-      <div class="s-title" style="margin-top:10px">Lo que nos diferencia de cualquier<br>proveedor de decoración.</div>
+      <div class="s-title" style="margin-top:10px">Lo que nos diferencia de cualquier proveedor de decoración.</div>
     </div>
     <div class="porque-grid">
       <div class="porque-item">
@@ -299,7 +323,7 @@ function brochureHTML(products, options = {}) {
       </div>
       <div class="porque-item">
         <div class="porque-title">Importación directa desde Francia</div>
-        <div class="porque-desc">Más de 16 años de viajes periódicos para adquirir piezas en Drouot, Millon &amp; Associes y Thierry de Maigret — lo que ningún otro proveedor chileno puede ofrecer.</div>
+        <div class="porque-desc">Más de 16 años de viajes para adquirir piezas en Drouot, Millon &amp; Associes y Thierry de Maigret — lo que ningún otro proveedor chileno puede ofrecer.</div>
       </div>
     </div>
     <div class="porque-single">
@@ -313,9 +337,9 @@ function brochureHTML(products, options = {}) {
     <div class="europa-content">
       <div class="europa-label">Selección e importación directa</div>
       <div class="europa-line"></div>
-      <div class="europa-quote">${T.europaQuote}</div>
+      <div class="europa-quote">Viajamos a Francia para traerle lo que no puede encontrar en ningún otro lugar de Chile.</div>
       <div class="europa-line"></div>
-      <div class="europa-sub">${T.europaTexto}</div>
+      <div class="europa-sub">Durante más de 16 años, Ricardo Pizarro y su equipo han viajado periódicamente a Francia para adquirir piezas en las grandes casas de remate: Drouot, Millon &amp; Associes y Thierry de Maigret. Cada viaje es una búsqueda entre bodegas y mercados de anticuarios, para traer a Chile aquellos objetos únicos que deleitarán los espacios de sus clientes. Este atributo es imposible de replicar y nos posiciona muy por encima de cualquier tienda de decoración tradicional.</div>
     </div>
   </div>
 
@@ -370,9 +394,12 @@ function brochureHTML(products, options = {}) {
   <!-- CONTACTO -->
   <div class="contacto page">
     <div class="contacto-bg"></div>
+    <div class="contacto-deco">
+      <div class="contacto-deco-bg"></div>
+    </div>
     <div class="contacto-content">
       <img src="${LOGO}" alt="Bucarest Art &amp; Antiques" class="contacto-logo">
-      <div class="contacto-tagline">${T.cierreTagline}</div>
+      <div class="contacto-tagline">Transformamos espacios corporativos en experiencias memorables a través de piezas únicas con historia.</div>
       <div class="contacto-line"></div>
       <div class="contacto-data">
         <strong>Bucarest Art &amp; Antiques</strong><br>
@@ -393,4 +420,4 @@ function brochureHTML(products, options = {}) {
 </html>`;
 }
 
-module.exports = { brochureHTML, BROCHURE_DEFAULTS: DEFAULTS };
+module.exports = { brochureHTML };

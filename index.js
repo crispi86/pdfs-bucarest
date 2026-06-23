@@ -9,7 +9,7 @@ const { certificateHTML } = require('./templates/certificate');
 const { catalogHTML } = require('./templates/catalog');
 const { quoteHTML } = require('./templates/quote');
 const { receiptHTML } = require('./templates/receipt');
-const { brochureHTML, BROCHURE_DEFAULTS } = require('./templates/brochure');
+const { brochureHTML } = require('./templates/brochure');
 const shopify = require('./shopify');
 const { fetchBase64, embedProductImages, initStaticImages, STATIC } = require('./images');
 
@@ -464,10 +464,6 @@ app.get('/api/textures', (req, res) => {
   res.json(TEXTURES.map(url => ({ url, alt: url.split('/').pop().split('?')[0].replace(/\.[^.]+$/, '').replace(/_/g, ' ') })));
 });
 
-app.get('/api/brochure-defaults', (req, res) => {
-  res.json(BROCHURE_DEFAULTS);
-});
-
 app.get('/api/contextos', async (req, res) => {
   try {
     const files = await shopify.getFilesByKeyword('contexto');
@@ -660,7 +656,7 @@ app.post('/generate/brochure', async (req, res) => {
     const {
       company_name, responsable, cargo, correo, telefono,
       show_prices, textura_url, contexto_url, product_ids = [],
-      quienes_titulo, quienes_texto, europa_quote, europa_texto, cierre_tagline,
+      proyecto,
     } = req.body;
 
     let products = [];
@@ -685,14 +681,10 @@ app.post('/generate/brochure', async (req, res) => {
       texturaImage: texturaData,
       contextoImage: contextoData,
       staticImages: STATIC,
-      quienesTitulo: quienes_titulo,
-      quienesTexto:  quienes_texto,
-      europaQuote:   europa_quote,
-      europaTexto:   europa_texto,
-      cierreTagline: cierre_tagline,
+      proyecto: proyecto || '',
     });
 
-    const pdf = await generatePDF(html);
+    const pdf = await generatePDF(html, { landscape: true });
     const safeName = (company_name || '').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
     const filename = `Brochure-Bucarest${safeName ? '-' + safeName : ''}.pdf`;
     res.set('Content-Type', 'application/pdf');
@@ -1293,34 +1285,11 @@ function adminUI(host) {
       </div>
     </div>
 
-    <div class="card" style="padding-top:12px">
-      <details id="brochure-texts-details">
-        <summary style="cursor:pointer;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#9a7f5a;list-style:none;display:flex;align-items:center;gap:8px;padding:6px 0">
-          <span>&#9998; Personalizar textos del brochure</span>
-        </summary>
-        <div style="margin-top:20px;display:flex;flex-direction:column;gap:20px">
-          <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:#666">
-            Título "Quiénes somos"
-            <input id="brochure-quienes-titulo" placeholder="38 años seleccionando piezas únicas…">
-          </label>
-          <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:#666">
-            Texto "Quiénes somos" <span style="text-transform:none;letter-spacing:0;font-size:11px;color:#999">(separa párrafos con una línea en blanco)</span>
-            <textarea id="brochure-quienes-texto" rows="6" style="resize:vertical"></textarea>
-          </label>
-          <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:#666">
-            Frase importación Francia <span style="text-transform:none;letter-spacing:0;font-size:11px;color:#999">(texto grande en página oscura)</span>
-            <input id="brochure-europa-quote" placeholder="Viajamos a Francia para traerle lo que no puede encontrar…">
-          </label>
-          <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:#666">
-            Descripción importación
-            <textarea id="brochure-europa-texto" rows="4" style="resize:vertical"></textarea>
-          </label>
-          <label style="display:flex;flex-direction:column;gap:6px;font-size:12px;letter-spacing:0.06em;text-transform:uppercase;color:#666">
-            Tagline de cierre
-            <input id="brochure-cierre-tagline" placeholder="Transformamos espacios corporativos en experiencias memorables…">
-          </label>
-        </div>
-      </details>
+    <div class="card">
+      <span class="section-label">El Proyecto <span style="text-transform:none;letter-spacing:0;font-size:11px;color:#999;font-weight:400">(opcional)</span></span>
+      <p style="font-size:12px;color:#999;margin-bottom:12px">Describe el proyecto específico que estás ofreciendo a esta empresa — decorar sus oficinas, renovar la sala del directorio, regalos para sus clientes VIP, etc. Aparece como página propia en el brochure.</p>
+      <textarea id="brochure-proyecto" rows="7" placeholder="Ejemplo: En base a nuestra reunión del 15 de junio, proponemos intervenir el salón del directorio y la recepción principal de su sede con una selección de 8 piezas antiguas de origen francés…" style="resize:vertical"></textarea>
+      <p style="font-size:11px;color:#bbb;margin-top:6px">Si lo dejas vacío, el brochure irá directo de la portada a «Quiénes somos».</p>
     </div>
 
     <div class="btn-row">
@@ -1861,17 +1830,6 @@ init();
 
 // ── Brochure ──────────────────────────────────────────────────────────────────
 async function loadBrochurePickers() {
-  // Pre-rellenar textos editables con defaults del servidor
-  try {
-    const res = await fetch('/api/brochure-defaults');
-    const d = await res.json();
-    document.getElementById('brochure-quienes-titulo').placeholder = d.quienesTitulo || '';
-    document.getElementById('brochure-quienes-texto').placeholder  = d.quienesTexto  || '';
-    document.getElementById('brochure-europa-quote').placeholder   = d.europaQuote   || '';
-    document.getElementById('brochure-europa-texto').placeholder   = d.europaTexto   || '';
-    document.getElementById('brochure-cierre-tagline').placeholder = d.cierreTagline || '';
-  } catch(e) { /* no-op, placeholders are fine */ }
-
   // Textura de portada (reutiliza /api/textures)
   const texGrid = document.getElementById('brochure-texture-grid');
   try {
@@ -1926,15 +1884,11 @@ async function generateBrochure() {
     cargo:          document.getElementById('brochure-cargo').value.trim(),
     correo:         document.getElementById('brochure-correo').value.trim(),
     telefono:       document.getElementById('brochure-telefono').value.trim(),
-    show_prices:    document.getElementById('brochure-show-prices').checked,
-    textura_url:    document.getElementById('brochure-textura-url').value,
-    contexto_url:   document.getElementById('brochure-contexto-url').value,
-    product_ids:    ids,
-    quienes_titulo: document.getElementById('brochure-quienes-titulo').value.trim() || undefined,
-    quienes_texto:  document.getElementById('brochure-quienes-texto').value.trim() || undefined,
-    europa_quote:   document.getElementById('brochure-europa-quote').value.trim() || undefined,
-    europa_texto:   document.getElementById('brochure-europa-texto').value.trim() || undefined,
-    cierre_tagline: document.getElementById('brochure-cierre-tagline').value.trim() || undefined,
+    show_prices:  document.getElementById('brochure-show-prices').checked,
+    textura_url:  document.getElementById('brochure-textura-url').value,
+    contexto_url: document.getElementById('brochure-contexto-url').value,
+    product_ids:  ids,
+    proyecto:     document.getElementById('brochure-proyecto').value.trim(),
   };
   try {
     const res = await fetch('/generate/brochure', {
