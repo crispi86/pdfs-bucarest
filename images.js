@@ -4,9 +4,17 @@ const http  = require('http');
 // Pre-fetched static images (encabezado, timbre, logo)
 const STATIC = {};
 
-function fetchBase64(url) {
+// Añade ?width=N al CDN de Shopify para traer imagen ya reducida desde origen
+function shopifyResizeUrl(url, width) {
+  if (!url || !url.includes('cdn.shopify.com') || !width) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}width=${width}`;
+}
+
+function fetchBase64(url, maxWidth) {
+  const target = maxWidth ? shopifyResizeUrl(url, maxWidth) : url;
   return new Promise((resolve) => {
-    if (!url || url.startsWith('data:')) { resolve(url); return; }
+    if (!target || target.startsWith('data:')) { resolve(target); return; }
 
     function get(targetUrl, hopsLeft) {
       const mod = targetUrl.startsWith('https') ? https : http;
@@ -23,13 +31,13 @@ function fetchBase64(url) {
           const mime = (res.headers['content-type'] || 'image/jpeg').split(';')[0];
           resolve(`data:${mime};base64,${buf.toString('base64')}`);
         });
-        res.on('error', () => resolve(url));
+        res.on('error', () => resolve(target));
       });
-      req.on('error', () => resolve(url));
-      req.setTimeout(10000, () => { req.destroy(); resolve(url); });
+      req.on('error', () => resolve(target));
+      req.setTimeout(10000, () => { req.destroy(); resolve(target); });
     }
 
-    get(url, 5);
+    get(target, 5);
   });
 }
 
@@ -47,11 +55,11 @@ async function initStaticImages() {
   console.log('[images] Static images ready:', Object.keys(STATIC).join(', '));
 }
 
-async function embedProductImages(products) {
+async function embedProductImages(products, maxWidth) {
   return Promise.all(products.map(async (p) => {
     const url = p.images?.[0]?.src;
     if (!url) return p;
-    const b64 = await fetchBase64(url);
+    const b64 = await fetchBase64(url, maxWidth);
     return { ...p, images: [{ ...p.images[0], src: b64 }, ...p.images.slice(1)] };
   }));
 }

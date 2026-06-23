@@ -499,7 +499,8 @@ app.get('/api/products', async (req, res) => {
 app.post('/generate/certificate', async (req, res) => {
   try {
     const { title, description, price, image, origen, alto, ancho,
-            send_email, to_email, to_name, nominative_honorific, nominative_name, expert } = req.body;
+            send_email, to_email, to_name, nominative_honorific, nominative_name, expert,
+            emission_date } = req.body;
 
     const folio     = await shopify.getNextCertFolio();
     const imageData = await fetchBase64(image);
@@ -514,7 +515,7 @@ app.post('/generate/certificate', async (req, res) => {
     };
 
     const nominative = nominative_name ? { honorific: nominative_honorific || '', name: nominative_name } : null;
-    const html = certificateHTML([item], { folio, nominative, expert: expert || 'ricardo', staticImages: STATIC });
+    const html = certificateHTML([item], { folio, nominative, expert: expert || 'ricardo', staticImages: STATIC, emissionDate: emission_date || '' });
     const pdf = await generatePDF(html, { format: 'Letter', margin: { top: '20mm', right: '25mm', bottom: '20mm', left: '25mm' } });
 
     if (send_email && to_email) {
@@ -534,7 +535,7 @@ app.post('/generate/certificate', async (req, res) => {
 // ── Generar catálogo ──────────────────────────────────────────────────────────
 app.post('/generate/catalog', async (req, res) => {
   try {
-    const { product_ids, title, show_prices, show_estado, send_email, responsable, cargo, correo, telefono, bg_image, price_overrides } = req.body;
+    const { product_ids, title, show_prices, show_estado, show_quienes_somos, send_email, responsable, cargo, correo, telefono, bg_image, price_overrides } = req.body;
     const ids = Array.isArray(product_ids) ? product_ids : [product_ids];
 
     const [rawProducts, locations, bgImageData] = await Promise.all([
@@ -547,15 +548,16 @@ app.post('/generate/catalog', async (req, res) => {
         return p;
       })),
       withCache('locations', 60 * 60 * 1000, () => shopify.getLocations()),
-      bg_image ? fetchBase64(bg_image) : Promise.resolve(''),
+      bg_image ? fetchBase64(bg_image, 1200) : Promise.resolve(''),
     ]);
 
-    const products = await embedProductImages(rawProducts);
+    const products = await embedProductImages(rawProducts, 800);
 
     const html = catalogHTML(products, {
       title: title || 'Catálogo',
       showPrices: show_prices !== 'false',
       showEstado: show_estado === 'true',
+      showQuienesSomos: show_quienes_somos === 'true' || show_quienes_somos === true,
       responsable, cargo, correo, telefono,
       bgImage: bg_image,
       bgImageData,
@@ -666,12 +668,12 @@ app.post('/generate/brochure', async (req, res) => {
         const meta = await shopify.getProductMetafields(p.id);
         return { ...p, _metafields: meta };
       }));
-      products = await embedProductImages(withMeta);
+      products = await embedProductImages(withMeta, 900);
     }
 
     const [texturaData, contextoData] = await Promise.all([
-      textura_url  ? fetchBase64(textura_url)  : Promise.resolve(''),
-      contexto_url ? fetchBase64(contexto_url) : Promise.resolve(''),
+      textura_url  ? fetchBase64(textura_url, 1400)  : Promise.resolve(''),
+      contexto_url ? fetchBase64(contexto_url, 1400) : Promise.resolve(''),
     ]);
 
     const html = brochureHTML(products, {
@@ -905,6 +907,9 @@ function adminUI(host) {
         </div>
         <input type="hidden" id="cert-image-url">
         <hr style="border:none;border-top:1px solid #e8e2d9;margin:20px 0">
+        <div class="row row-2" style="margin-bottom:20px">
+          <label>Fecha de emisión <input type="date" id="cert-emission-date"></label>
+        </div>
         <span class="section-label">Experto certificador</span>
         <label style="margin-bottom:20px">Certifica
           <select id="cert-expert">
@@ -1038,6 +1043,7 @@ function adminUI(host) {
       <input id="catalog-title" placeholder="Ej: Catálogo Pintura Siglo XIX" style="width:100%;margin-bottom:16px">
       <div class="checkbox-row"><input type="checkbox" id="catalog-prices" checked><label for="catalog-prices" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar precios</label></div>
       <div class="checkbox-row"><input type="checkbox" id="catalog-show-estado"><label for="catalog-show-estado" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar metacampo Estado</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="catalog-quienes-somos"><label for="catalog-quienes-somos" style="text-transform:none;letter-spacing:0;font-size:13px">Incluir página "Quiénes somos"</label></div>
     </div>
 
     <div class="card">
@@ -1557,6 +1563,7 @@ async function generate(type, sendEmail = false) {
       body.title = document.getElementById('catalog-title').value || 'Catálogo';
       body.show_prices = document.getElementById('catalog-prices').checked ? 'true' : 'false';
       body.show_estado = document.getElementById('catalog-show-estado').checked ? 'true' : 'false';
+      body.show_quienes_somos = document.getElementById('catalog-quienes-somos').checked ? 'true' : 'false';
       body.responsable = document.getElementById('catalog-responsable').value;
       body.cargo = document.getElementById('catalog-cargo').value;
       body.correo = document.getElementById('catalog-correo').value;

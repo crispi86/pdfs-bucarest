@@ -196,10 +196,15 @@ function brochureHTML(products, options = {}) {
     .paso-desc { font-size: 11px; color: #888; line-height: 1.7; }
 
     /* ── CONTACTO ── */
-    .contacto { min-height: 100vh; background: #1a1a1a; position: relative; display: flex; flex-direction: row; align-items: stretch; }
-    .contacto-bg { position: absolute; inset: 0; background-image: url('${TEXTURA}'); background-size: cover; opacity: 0.1; }
-    .contacto-deco { width: 42%; flex-shrink: 0; position: relative; overflow: hidden; }
-    .contacto-deco-bg { position: absolute; inset: 0; background-image: url('${CONTEXTO}'); background-size: cover; background-position: center; opacity: 0.18; }
+    .contacto { min-height: 100vh; background: #1a1a1a; display: flex; flex-direction: row; align-items: stretch; }
+    .contacto-deco {
+      width: 42%; flex-shrink: 0; position: relative; overflow: hidden;
+      background-image: url('${CONTEXTO}');
+      background-size: cover; background-position: center;
+    }
+    .contacto-deco::after {
+      content: ''; position: absolute; inset: 0; background: rgba(20,16,12,0.62);
+    }
     .contacto-content {
       flex: 1; position: relative; z-index: 1;
       display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
@@ -393,10 +398,7 @@ function brochureHTML(products, options = {}) {
 
   <!-- CONTACTO -->
   <div class="contacto page">
-    <div class="contacto-bg"></div>
-    <div class="contacto-deco">
-      <div class="contacto-deco-bg"></div>
-    </div>
+    <div class="contacto-deco"></div>
     <div class="contacto-content">
       <img src="${LOGO}" alt="Bucarest Art &amp; Antiques" class="contacto-logo">
       <div class="contacto-tagline">Transformamos espacios corporativos en experiencias memorables a través de piezas únicas con historia.</div>

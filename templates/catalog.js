@@ -3,6 +3,7 @@ function catalogHTML(products, options = {}) {
     title = 'Catálogo',
     showPrices = true,
     showEstado = false,
+    showQuienesSomos = false,
     responsable = '',
     cargo = '',
     correo = '',
@@ -189,6 +190,43 @@ function catalogHTML(products, options = {}) {
     .store-block { font-size: 12px; color: #555; line-height: 1.8; }
     .store-block h4 { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #9a7f5a; margin-bottom: 6px; }
     .store-block .store-hours { margin-top: 8px; font-size: 11px; color: #777; line-height: 1.7; }
+
+    /* ── Quiénes somos ── */
+    .quienes {
+      width: 100vw; min-height: 100vh; page-break-after: always;
+      display: flex; flex-direction: row; align-items: stretch;
+    }
+    .quienes-left {
+      width: 42%; flex-shrink: 0;
+      background: #1a1a1a;
+      display: flex; flex-direction: column; justify-content: flex-end;
+      padding: 60px 48px;
+    }
+    .quienes-left-tag {
+      font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+      color: #9a7f5a; margin-bottom: 18px;
+    }
+    .quienes-left-title {
+      font-size: 36px; font-weight: 300; color: #fff; line-height: 1.2;
+      letter-spacing: 0.04em; margin-bottom: 24px;
+    }
+    .quienes-left-divider { width: 48px; height: 1px; background: #9a7f5a; margin-bottom: 28px; }
+    .quienes-left-stat { margin-bottom: 20px; }
+    .quienes-left-stat-num { font-size: 42px; font-weight: 200; color: #9a7f5a; line-height: 1; }
+    .quienes-left-stat-label { font-size: 12px; color: #aaa; letter-spacing: 0.08em; margin-top: 4px; }
+    .quienes-right {
+      flex: 1; background: #fff;
+      padding: 70px 60px 60px 64px;
+      display: flex; flex-direction: column; justify-content: center; gap: 22px;
+      border-left: 4px solid #9a7f5a;
+    }
+    .quienes-right-section { margin-bottom: 4px; }
+    .quienes-right-label {
+      font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+      color: #9a7f5a; margin-bottom: 8px;
+    }
+    .quienes-right-body { font-size: 13.5px; color: #333; line-height: 1.85; }
+    .quienes-right-body strong { color: #1a1a1a; }
   </style>
 </head>
 <body>
@@ -218,6 +256,48 @@ function catalogHTML(products, options = {}) {
       </div>` : ''}
     </div>
   </div>
+
+  ${showQuienesSomos ? `
+  <!-- QUIÉNES SOMOS -->
+  <div class="quienes">
+    <div class="quienes-left">
+      <div class="quienes-left-tag">Quiénes somos</div>
+      <div class="quienes-left-title">38 años<br>transformando<br>espacios</div>
+      <div class="quienes-left-divider"></div>
+      <div class="quienes-left-stat">
+        <div class="quienes-left-stat-num">1986</div>
+        <div class="quienes-left-stat-label">Año de fundación</div>
+      </div>
+      <div class="quienes-left-stat">
+        <div class="quienes-left-stat-num">2</div>
+        <div class="quienes-left-stat-label">Locales en Santiago</div>
+      </div>
+      <div class="quienes-left-stat">
+        <div class="quienes-left-stat-num">FR</div>
+        <div class="quienes-left-stat-label">Importación directa desde Francia</div>
+      </div>
+    </div>
+    <div class="quienes-right">
+      <div class="quienes-right-section">
+        <div class="quienes-right-label">Nuestra historia</div>
+        <div class="quienes-right-body">
+          Bucarest Art &amp; Antiques nació en 1986 de la mano de <strong>Ricardo Pizarro Pacheco</strong>, con la misión de acercar al mercado chileno piezas de arte y antigüedades de primera línea. Desde sus inicios, Ricardo viajó personalmente a Francia para seleccionar mobiliario, pinturas, alfombras y bronces en los grandes remates europeos —<strong>Drouot, Millon y Thierry de Maigret</strong>— garantizando autenticidad y procedencia en cada adquisición.
+        </div>
+      </div>
+      <div class="quienes-right-section">
+        <div class="quienes-right-label">Lo que ofrecemos</div>
+        <div class="quienes-right-body">
+          Contamos con una selección permanente de muebles clásicos y de época, pinturas al óleo, alfombras orientales, bronces y objetos decorativos. Cada pieza es evaluada y certificada por nuestros expertos antes de ingresar a nuestra colección, asegurando calidad y autenticidad comprobadas.
+        </div>
+      </div>
+      <div class="quienes-right-section">
+        <div class="quienes-right-label">Venta corporativa</div>
+        <div class="quienes-right-body">
+          Asesoramos a empresas e instituciones en la decoración de oficinas, salas de directorio, hoteles y espacios representativos, así como en la selección de <strong>regalos corporativos</strong> de alto valor para sus mejores clientes. Trabajamos con curadería personalizada, ajustada al presupuesto y la identidad de cada organización.
+        </div>
+      </div>
+    </div>
+  </div>` : ''}
 
   <!-- PRODUCTOS -->
   ${pages}

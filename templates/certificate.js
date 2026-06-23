@@ -1,12 +1,13 @@
-function spanishDate() {
+function spanishDate(dateStr) {
   const days = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
   const months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-  const now = new Date();
+  // dateStr viene como "YYYY-MM-DD" desde el formulario; si no hay usamos hoy
+  const d = dateStr ? new Date(dateStr + 'T12:00:00') : new Date();
   return {
-    dayName: days[now.getDay()],
-    dayNumber: now.getDate(),
-    monthName: months[now.getMonth()],
-    year: now.getFullYear(),
+    dayName: days[d.getDay()],
+    dayNumber: d.getDate(),
+    monthName: months[d.getMonth()],
+    year: d.getFullYear(),
   };
 }
 
@@ -15,8 +16,8 @@ function formatPrice(amount, currency = 'CLP') {
 }
 
 function certificateHTML(lineItems, options = {}) {
-  const { dayName, dayNumber, monthName, year } = spanishDate();
-  const { folio, nominative, expert, staticImages = {} } = options;
+  const { folio, nominative, expert, staticImages = {}, emissionDate } = options;
+  const { dayName, dayNumber, monthName, year } = spanishDate(emissionDate);
 
   const experts = {
     ricardo: { name: 'Ricardo Pizarro Pacheco', rut: '5.571.169-0' },
