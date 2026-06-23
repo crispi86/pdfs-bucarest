@@ -9,6 +9,7 @@ const { certificateHTML } = require('./templates/certificate');
 const { catalogHTML } = require('./templates/catalog');
 const { quoteHTML } = require('./templates/quote');
 const { receiptHTML } = require('./templates/receipt');
+const { brochureHTML } = require('./templates/brochure');
 const shopify = require('./shopify');
 const { fetchBase64, embedProductImages, initStaticImages, STATIC } = require('./images');
 
@@ -463,6 +464,19 @@ app.get('/api/textures', (req, res) => {
   res.json(TEXTURES.map(url => ({ url, alt: url.split('/').pop().split('?')[0].replace(/\.[^.]+$/, '').replace(/_/g, ' ') })));
 });
 
+app.get('/api/contextos', async (req, res) => {
+  try {
+    const files = await shopify.getFiles();
+    const contextos = files.filter(f => f.url && f.url.toLowerCase().includes('contexto'));
+    res.json(contextos.map(f => ({
+      url: f.url,
+      alt: f.altText || f.url.split('/').pop().split('?')[0].replace(/\.[^.]+$/, '').replace(/_/g, ' '),
+    })));
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/products', async (req, res) => {
   try {
     const { collection_id, tag, title, sku, metafield_namespace, metafield_key, metafield_value } = req.query;
@@ -637,6 +651,50 @@ app.post('/generate/receipt', async (req, res) => {
   }
 });
 
+// ── Generar brochure corporativo ──────────────────────────────────────────────
+app.post('/generate/brochure', async (req, res) => {
+  try {
+    const {
+      company_name, responsable, cargo, correo, telefono,
+      show_prices, textura_url, contexto_url, product_ids = [],
+    } = req.body;
+
+    let products = [];
+    if (product_ids.length) {
+      const raw = await Promise.all(product_ids.map(id => shopify.getProductById(id)));
+      const withMeta = await Promise.all(raw.map(async p => {
+        const meta = await shopify.getProductMetafields(p.id);
+        return { ...p, _metafields: meta };
+      }));
+      products = await embedProductImages(withMeta);
+    }
+
+    const [texturaData, contextoData] = await Promise.all([
+      textura_url  ? fetchBase64(textura_url)  : Promise.resolve(''),
+      contexto_url ? fetchBase64(contexto_url) : Promise.resolve(''),
+    ]);
+
+    const html = brochureHTML(products, {
+      companyName: company_name,
+      responsable, cargo, correo, telefono,
+      showPrices: show_prices === true || show_prices === 'true',
+      texturaImage: texturaData,
+      contextoImage: contextoData,
+      staticImages: STATIC,
+    });
+
+    const pdf = await generatePDF(html);
+    const safeName = (company_name || '').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
+    const filename = `Brochure-Bucarest${safeName ? '-' + safeName : ''}.pdf`;
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdf);
+  } catch (e) {
+    console.error('[brochure]', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Bucarest PDF Generator corriendo en puerto ${PORT}`);
@@ -777,6 +835,7 @@ function adminUI(host) {
   <button class="nav-btn" onclick="showPage('catalog')">Catálogos</button>
   <button class="nav-btn" onclick="showPage('quote')">Cotizaciones</button>
   <button class="nav-btn" onclick="showPage('receipt')">Comprobantes</button>
+  <button class="nav-btn" onclick="showPage('brochure')">Brochure</button>
 </div>
 
 <div class="main">
@@ -1144,6 +1203,88 @@ function adminUI(host) {
     <div class="msg" id="receipt-msg"></div>
   </div>
 
+  <!-- BROCHURE CORPORATIVO -->
+  <div class="page" id="page-brochure">
+    <h1>Brochure Corporativo</h1>
+    <p class="subtitle">Propuesta de negocios para empresas — arte, decoración y regalos corporativos exclusivos.</p>
+
+    <div class="card">
+      <span class="section-label">Empresa destinataria</span>
+      <label>Nombre de la empresa <input id="brochure-company" placeholder="Ej: Constructora XYZ S.A."></label>
+    </div>
+
+    <div class="card">
+      <span class="section-label">Responsable Bucarest</span>
+      <div class="row row-2">
+        <label>Nombre <input id="brochure-responsable" placeholder="Ej: Cristóbal Pizarro"></label>
+        <label>Cargo <input id="brochure-cargo" placeholder="Ej: Director Ejecutivo"></label>
+      </div>
+      <div class="row row-2">
+        <label>Correo <input id="brochure-correo" type="email" placeholder="cristobal@bucarestart.cl"></label>
+        <label>Teléfono <input id="brochure-telefono" placeholder="+56 9 3342 3442"></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="section-label">Imagen de portada (textura de fondo)</span>
+      <div class="texture-grid" id="brochure-texture-grid">
+        <div style="color:#999;font-size:13px;grid-column:1/-1">Cargando texturas…</div>
+      </div>
+      <input type="hidden" id="brochure-textura-url">
+    </div>
+
+    <div class="card">
+      <span class="section-label">Imagen de presentación (contexto)</span>
+      <p style="font-size:12px;color:#999;margin-bottom:12px">Esta imagen aparece en la sección "Quiénes somos" — idealmente un espacio con muebles o arte de la tienda.</p>
+      <div class="texture-grid" id="brochure-contexto-grid">
+        <div style="color:#999;font-size:13px;grid-column:1/-1">Cargando imágenes de contexto…</div>
+      </div>
+      <input type="hidden" id="brochure-contexto-url">
+    </div>
+
+    <div class="card">
+      <span class="section-label">Piezas destacadas (opcional)</span>
+      <p style="font-size:12px;color:#999;margin-bottom:12px">Agrega productos de tu catálogo. Cada uno aparecerá en una página dedicada con imagen grande.</p>
+      <div id="brochure-filters" class="filter-row">
+        <button class="filter-btn active" onclick="setFilter('brochure','collection')">Por colección</button>
+        <button class="filter-btn" onclick="setFilter('brochure','tag')">Por tag</button>
+        <button class="filter-btn" onclick="setFilter('brochure','title')">Por título</button>
+        <button class="filter-btn" onclick="setFilter('brochure','sku')">Por SKU</button>
+      </div>
+      <div id="brochure-filter-collection" class="filter-panel active">
+        <label>Colección
+          <select id="brochure-collection" onchange="loadProducts('brochure')"><option value="">Seleccione…</option></select>
+        </label>
+      </div>
+      <div id="brochure-filter-tag" class="filter-panel">
+        <label>Tag <input id="brochure-tag" placeholder="Ej: pintura" oninput="debounce(() => loadProducts('brochure'), 600)"></label>
+      </div>
+      <div id="brochure-filter-title" class="filter-panel">
+        <label>Palabra en título <input id="brochure-title-filter" placeholder="Ej: óleo" oninput="debounce(() => loadProducts('brochure'), 600)"></label>
+      </div>
+      <div id="brochure-filter-sku" class="filter-panel">
+        <label>SKU <input id="brochure-sku" placeholder="Ej: ART-001" oninput="debounce(() => loadProducts('brochure'), 600)"></label>
+      </div>
+      <div class="loading" id="brochure-loading">Cargando productos…</div>
+      <div class="status-filter" id="brochure-status-filter" style="display:none;margin-top:12px">
+        <button class="status-btn active" onclick="filterByStatus('brochure','all',this)">Todos</button>
+        <button class="status-btn" onclick="filterByStatus('brochure','active',this)">Activos</button>
+        <button class="status-btn" onclick="filterByStatus('brochure','draft',this)">Borrador</button>
+      </div>
+      <div class="product-list" id="brochure-products"></div>
+      <div class="selected-count" id="brochure-count"></div>
+      <div class="checkbox-row" style="margin-top:16px">
+        <input type="checkbox" id="brochure-show-prices">
+        <label for="brochure-show-prices" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar precios en el brochure</label>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="generateBrochure()">Descargar brochure</button>
+    </div>
+    <div class="msg" id="brochure-msg"></div>
+  </div>
+
 </div>
 
 
@@ -1153,7 +1294,7 @@ const collections = {};
 async function init() {
   const res = await fetch('/api/collections');
   const data = await res.json();
-  ['cert-collection','catalog-collection','quote-collection'].forEach(id => {
+  ['cert-collection','catalog-collection','quote-collection','brochure-collection'].forEach(id => {
     const sel = document.getElementById(id);
     data.forEach(c => {
       const opt = document.createElement('option');
@@ -1162,6 +1303,7 @@ async function init() {
     });
   });
   loadTexturePicker();
+  loadBrochurePickers();
 }
 
 function showPage(name) {
@@ -1201,7 +1343,7 @@ async function loadProducts(prefix) {
     if (!tag) { loading.style.display = 'none'; return; }
     url += 'tag=' + encodeURIComponent(tag);
   } else if (activeFilter.includes('título')) {
-    const titleInput = (prefix === 'catalog' || prefix === 'cert') ? prefix + '-title-filter' : prefix + '-title';
+    const titleInput = ['catalog', 'cert', 'brochure'].includes(prefix) ? prefix + '-title-filter' : prefix + '-title';
     const t = document.getElementById(titleInput).value.trim();
     if (!t) { loading.style.display = 'none'; return; }
     url += 'title=' + encodeURIComponent(t);
@@ -1663,6 +1805,92 @@ function resetCert() {
 }
 
 init();
+
+// ── Brochure ──────────────────────────────────────────────────────────────────
+async function loadBrochurePickers() {
+  // Textura de portada (reutiliza /api/textures)
+  const texGrid = document.getElementById('brochure-texture-grid');
+  try {
+    const res = await fetch('/api/textures');
+    const textures = await res.json();
+    texGrid.innerHTML = textures.map(t =>
+      \`<div class="texture-thumb brochure-tex-thumb" onclick="selectBrochureTextura('\${t.url}', this)" title="\${t.alt || ''}">
+        <img src="\${t.url}" alt="\${t.alt || ''}" loading="lazy">
+      </div>\`
+    ).join('');
+  } catch(e) {
+    texGrid.innerHTML = '<div style="color:#c00;font-size:13px;grid-column:1/-1">Error cargando texturas.</div>';
+  }
+
+  // Imágenes de contexto (archivos Shopify nombrados "contexto")
+  const ctxGrid = document.getElementById('brochure-contexto-grid');
+  try {
+    const res = await fetch('/api/contextos');
+    const images = await res.json();
+    if (!images.length) {
+      ctxGrid.innerHTML = '<div style="color:#999;font-size:13px;grid-column:1/-1">No se encontraron imágenes de contexto en Shopify. Asegúrese de subir archivos con "contexto" en el nombre.</div>';
+      return;
+    }
+    ctxGrid.innerHTML = images.map(img =>
+      \`<div class="texture-thumb brochure-ctx-thumb" onclick="selectBrochureContexto('\${img.url}', this)" title="\${img.alt || ''}">
+        <img src="\${img.url}" alt="\${img.alt || ''}" loading="lazy">
+      </div>\`
+    ).join('');
+  } catch(e) {
+    ctxGrid.innerHTML = '<div style="color:#c00;font-size:13px;grid-column:1/-1">Error cargando imágenes de contexto.</div>';
+  }
+}
+
+function selectBrochureTextura(url, el) {
+  document.querySelectorAll('.brochure-tex-thumb').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('brochure-textura-url').value = url;
+}
+
+function selectBrochureContexto(url, el) {
+  document.querySelectorAll('.brochure-ctx-thumb').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('brochure-contexto-url').value = url;
+}
+
+async function generateBrochure() {
+  showMsg('brochure', 'Generando brochure…', '');
+  const ids = getSelectedIds('brochure');
+  const body = {
+    company_name:  document.getElementById('brochure-company').value.trim(),
+    responsable:   document.getElementById('brochure-responsable').value.trim(),
+    cargo:         document.getElementById('brochure-cargo').value.trim(),
+    correo:        document.getElementById('brochure-correo').value.trim(),
+    telefono:      document.getElementById('brochure-telefono').value.trim(),
+    show_prices:   document.getElementById('brochure-show-prices').checked,
+    textura_url:   document.getElementById('brochure-textura-url').value,
+    contexto_url:  document.getElementById('brochure-contexto-url').value,
+    product_ids:   ids,
+  };
+  try {
+    const res = await fetch('/generate/brochure', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: \`Error \${res.status}\` }));
+      showMsg('brochure', err.error || 'Error generando el brochure.', 'err');
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safeName = body.company_name ? '-' + body.company_name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() : '';
+    a.download = \`Brochure-Bucarest\${safeName}.pdf\`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showMsg('brochure', 'Brochure generado correctamente.', 'ok');
+  } catch(e) {
+    showMsg('brochure', 'Error de conexión.', 'err');
+  }
+}
 
 // ── Texture picker ────────────────────────────────────────────────────────────
 async function loadTexturePicker() {
