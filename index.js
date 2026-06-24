@@ -417,6 +417,20 @@ app.get('/api/collections', async (req, res) => {
   }
 });
 
+app.get('/api/collection-products/:id', async (req, res) => {
+  try {
+    const products = await shopify.getProductsByCollection(req.params.id);
+    res.json(products.map(p => ({
+      id: p.id,
+      title: p.title,
+      image: p.images?.[0]?.src || '',
+      price: p.variants?.[0]?.price || null,
+    })));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/files', async (req, res) => {
   try {
     const products = await shopify.getAllPages('products.json?fields=id,title,images&limit=250', 'products');
@@ -658,7 +672,7 @@ app.post('/generate/brochure', async (req, res) => {
     const {
       company_name, responsable, cargo, correo, telefono,
       show_prices, textura_url, contexto_images = {}, product_ids = [],
-      proyecto, products_per_page,
+      proyecto, products_per_page, collections = [],
     } = req.body;
 
     let products = [];
@@ -678,6 +692,14 @@ app.post('/generate/brochure', async (req, res) => {
     ]);
     const contextoImages = Object.fromEntries(CTX_SECTIONS.map((k, i) => [k, ctxDataArr[i]]));
 
+    const collectionsEmbedded = await Promise.all((collections || []).map(async col => ({
+      ...col,
+      products: await Promise.all((col.products || []).map(async p => ({
+        ...p,
+        image: p.image ? await fetchBase64(p.image, 400) : '',
+      }))),
+    })));
+
     const html = brochureHTML(products, {
       companyName: company_name,
       responsable, cargo, correo, telefono,
@@ -687,6 +709,7 @@ app.post('/generate/brochure', async (req, res) => {
       staticImages: STATIC,
       proyecto: proyecto || '',
       productsPerPage: parseInt(products_per_page) || 1,
+      collections: collectionsEmbedded,
     });
 
     const pdf = await generatePDF(html, { landscape: true });
@@ -1315,6 +1338,27 @@ function adminUI(host) {
     </div>
 
     <div class="card">
+      <span class="section-label">Colecciones <span style="text-transform:none;letter-spacing:0;font-size:11px;color:#999;font-weight:400">(opcional)</span></span>
+      <p style="font-size:12px;color:#999;margin-bottom:16px">Cada colección añadida ocupa una página con grilla de fotos. Recomendado máximo 9 piezas por colección.</p>
+      <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:12px">
+        <label style="flex:1;margin:0">Colección
+          <select id="brochure-col-select" style="margin-top:6px"><option value="">Seleccione una colección…</option></select>
+        </label>
+        <button class="btn btn-secondary" onclick="loadBrochureCollection()" style="height:38px;flex-shrink:0">Cargar piezas</button>
+      </div>
+      <div id="brochure-col-products" style="display:none;margin-bottom:16px">
+        <p style="font-size:11px;color:#999;margin-bottom:10px">Selecciona las piezas a incluir:</p>
+        <div id="brochure-col-product-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;margin-bottom:14px"></div>
+        <div class="checkbox-row" style="margin-bottom:14px">
+          <input type="checkbox" id="brochure-col-prices">
+          <label for="brochure-col-prices" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar precios en esta colección</label>
+        </div>
+        <button class="btn btn-primary" onclick="addBrochureCollection()">+ Añadir colección al brochure</button>
+      </div>
+      <div id="brochure-col-list"></div>
+    </div>
+
+    <div class="card">
       <span class="section-label">El Proyecto <span style="text-transform:none;letter-spacing:0;font-size:11px;color:#999;font-weight:400">(opcional)</span></span>
       <p style="font-size:12px;color:#999;margin-bottom:12px">Describe el proyecto específico que estás ofreciendo a esta empresa — decorar sus oficinas, renovar la sala del directorio, regalos para sus clientes VIP, etc. Aparece como página propia en el brochure.</p>
       <textarea id="brochure-proyecto" rows="7" placeholder="Ejemplo: En base a nuestra reunión del 15 de junio, proponemos intervenir el salón del directorio y la recepción principal de su sede con una selección de 8 piezas antiguas de origen francés…" style="resize:vertical"></textarea>
@@ -1338,7 +1382,7 @@ const collections = {};
 async function init() {
   const res = await fetch('/api/collections');
   const data = await res.json();
-  ['cert-collection','catalog-collection','quote-collection','brochure-collection'].forEach(id => {
+  ['cert-collection','catalog-collection','quote-collection','brochure-collection','brochure-col-select'].forEach(id => {
     const sel = document.getElementById(id);
     data.forEach(c => {
       const opt = document.createElement('option');
@@ -1912,6 +1956,73 @@ function selectBrochureCtx(el) {
   document.getElementById(\`ctx-\${sec}-url\`).value = el.dataset.url;
 }
 
+let _brochureColProducts = [];
+let _brochureCollections  = [];
+
+async function loadBrochureCollection() {
+  const sel = document.getElementById('brochure-col-select');
+  if (!sel.value) return;
+  const grid = document.getElementById('brochure-col-product-grid');
+  const panel = document.getElementById('brochure-col-products');
+  grid.innerHTML = '<div style="color:#999;font-size:13px;grid-column:1/-1">Cargando piezas…</div>';
+  panel.style.display = 'block';
+  try {
+    const res = await fetch(\`/api/collection-products/\${sel.value}\`);
+    _brochureColProducts = await res.json();
+    grid.innerHTML = _brochureColProducts.map((p, i) => \`
+      <label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px">
+        <div style="position:relative;width:100%;aspect-ratio:1;background:#e8e4df;overflow:hidden;border-radius:3px;border:2px solid transparent" id="bcp-wrap-\${i}">
+          \${p.image ? \`<img src="\${p.image}" style="width:100%;height:100%;object-fit:cover" loading="lazy">\` : '<div style="width:100%;height:100%;background:#ddd8d2"></div>'}
+          <div style="position:absolute;top:4px;right:4px;width:18px;height:18px;background:#fff;border-radius:3px;border:1px solid #ccc;display:flex;align-items:center;justify-content:center">
+            <input type="checkbox" data-idx="\${i}" onchange="toggleBrochureColProduct(\${i},this)" style="margin:0">
+          </div>
+        </div>
+        <span style="font-size:9px;color:#666;text-align:center;line-height:1.3;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">\${p.title}</span>
+      </label>\`).join('');
+  } catch(e) {
+    grid.innerHTML = '<div style="color:#c00;font-size:13px;grid-column:1/-1">Error cargando piezas.</div>';
+  }
+}
+
+function toggleBrochureColProduct(i, cb) {
+  const wrap = document.getElementById(\`bcp-wrap-\${i}\`);
+  if (wrap) wrap.style.borderColor = cb.checked ? '#9a7f5a' : 'transparent';
+}
+
+function addBrochureCollection() {
+  const sel = document.getElementById('brochure-col-select');
+  const checked = [...document.querySelectorAll('#brochure-col-product-grid input[type="checkbox"]:checked')];
+  if (!checked.length) return showMsg('brochure', 'Selecciona al menos una pieza.', 'err');
+  _brochureCollections.push({
+    id:         sel.value,
+    title:      sel.options[sel.selectedIndex].text,
+    showPrices: document.getElementById('brochure-col-prices').checked,
+    products:   checked.map(cb => _brochureColProducts[parseInt(cb.dataset.idx)]),
+  });
+  renderBrochureCollectionList();
+  document.getElementById('brochure-col-products').style.display = 'none';
+  sel.value = '';
+  document.getElementById('brochure-col-prices').checked = false;
+}
+
+function removeBrochureCollection(i) {
+  _brochureCollections.splice(i, 1);
+  renderBrochureCollectionList();
+}
+
+function renderBrochureCollectionList() {
+  const list = document.getElementById('brochure-col-list');
+  if (!_brochureCollections.length) { list.innerHTML = ''; return; }
+  list.innerHTML = _brochureCollections.map((col, i) => \`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f5f3f0;border-radius:4px;margin-bottom:8px;border-left:3px solid #9a7f5a">
+      <div>
+        <div style="font-size:13px;font-weight:500;color:#1a1a1a">\${col.title}</div>
+        <div style="font-size:11px;color:#999;margin-top:2px">\${col.products.length} pieza\${col.products.length !== 1 ? 's' : ''}\${col.showPrices ? ' · con precios' : ''}</div>
+      </div>
+      <button onclick="removeBrochureCollection(\${i})" style="background:none;border:none;color:#c00;font-size:12px;cursor:pointer;font-family:inherit;padding:0">Quitar</button>
+    </div>\`).join('');
+}
+
 async function generateBrochure() {
   showMsg('brochure', 'Generando brochure…', '');
   const ids = getSelectedIds('brochure');
@@ -1931,6 +2042,11 @@ async function generateBrochure() {
     product_ids:  ids,
     proyecto:     document.getElementById('brochure-proyecto').value.trim(),
     products_per_page: document.querySelector('input[name="brochure-ppp"]:checked')?.value || '1',
+    collections: _brochureCollections.map(col => ({
+      title:      col.title,
+      showPrices: col.showPrices,
+      products:   col.products.map(p => ({ title: p.title, image: p.image, price: p.price })),
+    })),
   };
   try {
     const res = await fetch('/generate/brochure', {

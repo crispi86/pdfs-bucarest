@@ -20,6 +20,7 @@ function brochureHTML(products, options = {}) {
     staticImages = {},
     proyecto = '',
     productsPerPage = 1,
+    collections = [],
   } = options;
 
   const LOGO    = staticImages.logo || 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/logo_web.png?v=1765624776';
@@ -106,6 +107,29 @@ function brochureHTML(products, options = {}) {
       </div>
     </div>`;
   }
+
+  const collectionPages = collections.map(col => {
+    const prods = col.products || [];
+    const photos = prods.map(p => `
+    <div class="col-item">
+      ${p.image ? `<img src="${p.image}" alt="${p.title || ''}">` : '<div class="col-item-empty"></div>'}
+      ${col.showPrices && p.price ? `<div class="col-item-price">${formatPrice(p.price)}</div>` : ''}
+    </div>`).join('');
+    return `<div class="collection-page page">
+    <div class="col-left">
+      <div class="col-tag">Colección</div>
+      <div class="col-title">${col.title || ''}</div>
+      <div class="col-line"></div>
+      <div>
+        <div class="col-count-num">${prods.length}</div>
+        <div class="col-count-label">piezas seleccionadas</div>
+      </div>
+    </div>
+    <div class="col-right">
+      <div class="col-grid">${photos}</div>
+    </div>
+  </div>`;
+  }).join('');
 
   let productPages = '';
   const ppp = parseInt(productsPerPage) || 1;
@@ -231,6 +255,21 @@ function brochureHTML(products, options = {}) {
     .prod-meta-s { display: flex; flex-direction: column; gap: 2px; border-top: 1px solid #e8e2d9; padding-top: 8px; }
     .prod-meta-row-s { font-size: 10px; color: #999; }
     .prod-meta-row-s strong { color: #555; font-weight: 500; margin-right: 4px; }
+
+    /* ── COLECCIONES ── */
+    .collection-page { min-height: 100vh; display: flex; flex-direction: row; align-items: stretch; }
+    .col-left { width: 32%; flex-shrink: 0; background: #1a1a1a; padding: 60px 52px; display: flex; flex-direction: column; justify-content: center; gap: 20px; }
+    .col-tag { font-size: 10px; letter-spacing: 0.24em; text-transform: uppercase; color: #9a7f5a; }
+    .col-title { font-size: 26px; font-weight: 300; color: #fff; line-height: 1.3; }
+    .col-line { width: 36px; height: 1px; background: #9a7f5a; }
+    .col-count-num { font-size: 42px; font-weight: 200; color: #9a7f5a; line-height: 1; }
+    .col-count-label { font-size: 9px; color: rgba(255,255,255,0.4); letter-spacing: 0.14em; text-transform: uppercase; margin-top: 4px; }
+    .col-right { flex: 1; background: #f5f3f0; padding: 36px 40px; display: flex; align-items: center; }
+    .col-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; align-content: start; }
+    .col-item { display: flex; flex-direction: column; background: #e8e4df; overflow: hidden; }
+    .col-item img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+    .col-item-empty { aspect-ratio: 1; background: #ddd8d2; }
+    .col-item-price { font-size: 10px; color: #9a7f5a; text-align: center; padding: 4px 6px; background: #fff; flex-shrink: 0; }
 
     /* ── PROCESO ── */
     .proceso { min-height: 100vh; display: flex; flex-direction: row; align-items: stretch; }
@@ -398,6 +437,9 @@ function brochureHTML(products, options = {}) {
 
   <!-- PIEZAS SELECCIONADAS -->
   ${productPages}
+
+  <!-- COLECCIONES -->
+  ${collectionPages}
 
   <!-- PROCESO DE TRABAJO -->
   <div class="proceso page">
