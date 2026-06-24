@@ -269,8 +269,8 @@ function catalogHTML(products, options = {}) {
         <div class="quienes-left-stat-label">Año de fundación</div>
       </div>
       <div class="quienes-left-stat">
-        <div class="quienes-left-stat-num">2</div>
-        <div class="quienes-left-stat-label">Locales en Santiago</div>
+        <div class="quienes-left-stat-num">4</div>
+        <div class="quienes-left-stat-label">locales en Santiago</div>
       </div>
       <div class="quienes-left-stat">
         <div class="quienes-left-stat-num">FR</div>

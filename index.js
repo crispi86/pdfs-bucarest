@@ -657,8 +657,8 @@ app.post('/generate/brochure', async (req, res) => {
   try {
     const {
       company_name, responsable, cargo, correo, telefono,
-      show_prices, textura_url, contexto_url, product_ids = [],
-      proyecto,
+      show_prices, textura_url, contexto_images = {}, product_ids = [],
+      proyecto, products_per_page,
     } = req.body;
 
     let products = [];
@@ -671,19 +671,22 @@ app.post('/generate/brochure', async (req, res) => {
       products = await embedProductImages(withMeta, 900);
     }
 
-    const [texturaData, contextoData] = await Promise.all([
-      textura_url  ? fetchBase64(textura_url, 1400)  : Promise.resolve(''),
-      contexto_url ? fetchBase64(contexto_url, 1400) : Promise.resolve(''),
+    const CTX_SECTIONS = ['quienes','servicios','porque','europa','proceso','contacto'];
+    const [texturaData, ...ctxDataArr] = await Promise.all([
+      textura_url ? fetchBase64(textura_url, 1400) : Promise.resolve(''),
+      ...CTX_SECTIONS.map(k => contexto_images[k] ? fetchBase64(contexto_images[k], 1400) : Promise.resolve('')),
     ]);
+    const contextoImages = Object.fromEntries(CTX_SECTIONS.map((k, i) => [k, ctxDataArr[i]]));
 
     const html = brochureHTML(products, {
       companyName: company_name,
       responsable, cargo, correo, telefono,
       showPrices: show_prices === true || show_prices === 'true',
       texturaImage: texturaData,
-      contextoImage: contextoData,
+      contextoImages,
       staticImages: STATIC,
       proyecto: proyecto || '',
+      productsPerPage: parseInt(products_per_page) || 1,
     });
 
     const pdf = await generatePDF(html, { landscape: true });
@@ -1246,12 +1249,23 @@ function adminUI(host) {
     </div>
 
     <div class="card">
-      <span class="section-label">Imagen de presentación (contexto)</span>
-      <p style="font-size:12px;color:#999;margin-bottom:12px">Esta imagen aparece en la sección "Quiénes somos" — idealmente un espacio con muebles o arte de la tienda.</p>
-      <div class="texture-grid" id="brochure-contexto-grid">
-        <div style="color:#999;font-size:13px;grid-column:1/-1">Cargando imágenes de contexto…</div>
-      </div>
-      <input type="hidden" id="brochure-contexto-url">
+      <span class="section-label">Imágenes de contexto por sección</span>
+      <p style="font-size:12px;color:#999;margin-bottom:20px">Elige una imagen distinta para cada sección del brochure. Se cargan desde los archivos de Shopify nombrados "contexto".</p>
+      ${[
+        ['quienes',   'Quiénes somos'],
+        ['servicios', 'Servicios para empresas'],
+        ['porque',    'Por qué elegirnos'],
+        ['europa',    'Importación desde Europa'],
+        ['proceso',   'Proceso de trabajo'],
+        ['contacto',  'Contacto (última página)'],
+      ].map(([sec, label]) => `
+      <div style="margin-bottom:18px">
+        <div style="font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:#9a7f5a;margin-bottom:8px">${label}</div>
+        <div class="texture-grid ctx-grid" id="ctx-${sec}-grid" style="max-height:130px;overflow-y:auto">
+          <div style="color:#999;font-size:13px;grid-column:1/-1">Cargando…</div>
+        </div>
+        <input type="hidden" id="ctx-${sec}-url">
+      </div>`).join('')}
     </div>
 
     <div class="card">
@@ -1288,6 +1302,15 @@ function adminUI(host) {
       <div class="checkbox-row" style="margin-top:16px">
         <input type="checkbox" id="brochure-show-prices">
         <label for="brochure-show-prices" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar precios en el brochure</label>
+      </div>
+      <div style="margin-top:14px;display:flex;align-items:center;gap:20px">
+        <span style="font-size:12px;color:#666;letter-spacing:0.06em;text-transform:uppercase">Productos por página:</span>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#1a1a1a;text-transform:none;letter-spacing:0">
+          <input type="radio" name="brochure-ppp" value="1" id="brochure-ppp-1" checked> 1 (página completa)
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:#1a1a1a;text-transform:none;letter-spacing:0">
+          <input type="radio" name="brochure-ppp" value="2" id="brochure-ppp-2"> 2 (media página c/u)
+        </label>
       </div>
     </div>
 
@@ -1837,7 +1860,7 @@ init();
 
 // ── Brochure ──────────────────────────────────────────────────────────────────
 async function loadBrochurePickers() {
-  // Textura de portada (reutiliza /api/textures)
+  // Textura de portada
   const texGrid = document.getElementById('brochure-texture-grid');
   try {
     const res = await fetch('/api/textures');
@@ -1851,22 +1874,27 @@ async function loadBrochurePickers() {
     texGrid.innerHTML = '<div style="color:#c00;font-size:13px;grid-column:1/-1">Error cargando texturas.</div>';
   }
 
-  // Imágenes de contexto (archivos Shopify nombrados "contexto")
-  const ctxGrid = document.getElementById('brochure-contexto-grid');
+  // Imágenes de contexto — una por sección
+  const CTX_SECTIONS = ['quienes','servicios','porque','europa','proceso','contacto'];
   try {
     const res = await fetch('/api/contextos');
     const images = await res.json();
-    if (!images.length) {
-      ctxGrid.innerHTML = '<div style="color:#999;font-size:13px;grid-column:1/-1">No se encontraron imágenes de contexto en Shopify. Asegúrese de subir archivos con "contexto" en el nombre.</div>';
-      return;
-    }
-    ctxGrid.innerHTML = images.map(img =>
-      \`<div class="texture-thumb brochure-ctx-thumb" onclick="selectBrochureContexto('\${img.url}', this)" title="\${img.alt || ''}">
-        <img src="\${img.url}" alt="\${img.alt || ''}" loading="lazy">
-      </div>\`
-    ).join('');
+    const thumbsHTML = images.length
+      ? images.map(img =>
+          \`<div class="texture-thumb" onclick="selectBrochureCtx(this)" data-url="\${img.url}" title="\${img.alt || ''}">
+            <img src="\${img.url}" alt="\${img.alt || ''}" loading="lazy">
+          </div>\`
+        ).join('')
+      : '<div style="color:#999;font-size:13px;grid-column:1/-1">Sin imágenes de contexto en Shopify.</div>';
+    CTX_SECTIONS.forEach(sec => {
+      const grid = document.getElementById(\`ctx-\${sec}-grid\`);
+      if (grid) grid.innerHTML = thumbsHTML;
+    });
   } catch(e) {
-    ctxGrid.innerHTML = '<div style="color:#c00;font-size:13px;grid-column:1/-1">Error cargando imágenes de contexto.</div>';
+    CTX_SECTIONS.forEach(sec => {
+      const grid = document.getElementById(\`ctx-\${sec}-grid\`);
+      if (grid) grid.innerHTML = '<div style="color:#c00;font-size:13px;grid-column:1/-1">Error cargando contextos.</div>';
+    });
   }
 }
 
@@ -1876,10 +1904,12 @@ function selectBrochureTextura(url, el) {
   document.getElementById('brochure-textura-url').value = url;
 }
 
-function selectBrochureContexto(url, el) {
-  document.querySelectorAll('.brochure-ctx-thumb').forEach(t => t.classList.remove('selected'));
+function selectBrochureCtx(el) {
+  const grid = el.closest('.ctx-grid');
+  const sec  = grid.id.replace('ctx-', '').replace('-grid', '');
+  grid.querySelectorAll('.texture-thumb').forEach(t => t.classList.remove('selected'));
   el.classList.add('selected');
-  document.getElementById('brochure-contexto-url').value = url;
+  document.getElementById(\`ctx-\${sec}-url\`).value = el.dataset.url;
 }
 
 async function generateBrochure() {
@@ -1893,9 +1923,14 @@ async function generateBrochure() {
     telefono:       document.getElementById('brochure-telefono').value.trim(),
     show_prices:  document.getElementById('brochure-show-prices').checked,
     textura_url:  document.getElementById('brochure-textura-url').value,
-    contexto_url: document.getElementById('brochure-contexto-url').value,
+    contexto_images: Object.fromEntries(
+      ['quienes','servicios','porque','europa','proceso','contacto']
+        .map(s => [s, document.getElementById(\`ctx-\${s}-url\`)?.value || ''])
+        .filter(([, v]) => v)
+    ),
     product_ids:  ids,
     proyecto:     document.getElementById('brochure-proyecto').value.trim(),
+    products_per_page: document.querySelector('input[name="brochure-ppp"]:checked')?.value || '1',
   };
   try {
     const res = await fetch('/generate/brochure', {
