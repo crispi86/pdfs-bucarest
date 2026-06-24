@@ -1118,9 +1118,14 @@ function adminUI(host) {
       </div>
       <div class="loading" id="catalog-loading">Cargando productos…</div>
       <div class="status-filter" id="catalog-status-filter" style="display:none;margin-top:12px">
-        <button class="status-btn active" onclick="filterByStatus('catalog','all',this)">Todos</button>
+        <button class="status-btn active" data-status="all" onclick="filterByStatus('catalog','all',this)">Todos</button>
         <button class="status-btn" onclick="filterByStatus('catalog','active',this)">Activos</button>
         <button class="status-btn" onclick="filterByStatus('catalog','draft',this)">Borrador</button>
+      </div>
+      <div class="status-filter" id="catalog-avail-filter" style="display:none;margin-top:6px">
+        <button class="avail-btn active" data-avail="all" onclick="filterByAvailability('catalog','all',this)">Todo stock</button>
+        <button class="avail-btn" data-avail="available" onclick="filterByAvailability('catalog','available',this)">Disponible</button>
+        <button class="avail-btn" data-avail="unavailable" onclick="filterByAvailability('catalog','unavailable',this)">Sin stock</button>
       </div>
       <div class="product-list" id="catalog-products"></div>
       <div style="display:flex;justify-content:space-between;align-items:center">
@@ -1316,9 +1321,14 @@ function adminUI(host) {
       </div>
       <div class="loading" id="brochure-loading">Cargando productos…</div>
       <div class="status-filter" id="brochure-status-filter" style="display:none;margin-top:12px">
-        <button class="status-btn active" onclick="filterByStatus('brochure','all',this)">Todos</button>
+        <button class="status-btn active" data-status="all" onclick="filterByStatus('brochure','all',this)">Todos</button>
         <button class="status-btn" onclick="filterByStatus('brochure','active',this)">Activos</button>
         <button class="status-btn" onclick="filterByStatus('brochure','draft',this)">Borrador</button>
+      </div>
+      <div class="status-filter" id="brochure-avail-filter" style="display:none;margin-top:6px">
+        <button class="avail-btn active" data-avail="all" onclick="filterByAvailability('brochure','all',this)">Todo stock</button>
+        <button class="avail-btn" data-avail="available" onclick="filterByAvailability('brochure','available',this)">Disponible</button>
+        <button class="avail-btn" data-avail="unavailable" onclick="filterByAvailability('brochure','unavailable',this)">Sin stock</button>
       </div>
       <div class="product-list" id="brochure-products"></div>
       <div class="selected-count" id="brochure-count"></div>
