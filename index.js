@@ -1400,16 +1400,22 @@ function adminUI(host) {
 const collections = {};
 
 async function init() {
-  const res = await fetch('/api/collections');
-  const data = await res.json();
-  ['cert-collection','catalog-collection','quote-collection','brochure-collection','brochure-col-select'].forEach(id => {
-    const sel = document.getElementById(id);
-    data.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.id; opt.textContent = c.title;
-      sel.appendChild(opt);
+  try {
+    const res = await fetch('/api/collections');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    ['cert-collection','catalog-collection','quote-collection','brochure-collection','brochure-col-select'].forEach(id => {
+      const sel = document.getElementById(id);
+      if (!sel) return;
+      data.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id; opt.textContent = c.title;
+        sel.appendChild(opt);
+      });
     });
-  });
+  } catch(e) {
+    console.error('[init] Error cargando colecciones:', e);
+  }
   loadTexturePicker();
   loadBrochurePickers();
 }
