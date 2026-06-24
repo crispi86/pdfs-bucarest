@@ -827,6 +827,14 @@ function adminUI(host) {
     .status-btn.active{border-color:#9a7f5a;background:#faf8f5;color:#9a7f5a}
     .selected-count{font-size:12px;color:#9a7f5a;margin:10px 0}
     .select-all-btn{background:none;border:none;font-size:12px;color:#9a7f5a;cursor:pointer;font-family:inherit;padding:10px 0;text-decoration:underline}
+    .ms-basket{border:1px solid #e8e2d9;border-radius:4px;padding:14px;margin-top:12px;background:#fdfcfb;display:none;max-height:220px;overflow-y:auto}
+    .ms-basket-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+    .ms-basket-title{font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#9a7f5a;font-weight:500}
+    .ms-basket-clear{background:none;border:none;color:#999;font-size:11px;cursor:pointer;font-family:inherit;text-decoration:underline;padding:0}
+    .ms-basket-item{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f0ece8}
+    .ms-basket-item:last-child{border-bottom:none}
+    .ms-basket-name{font-size:12px;color:#444;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:8px}
+    .ms-basket-remove{background:none;border:none;color:#c00;font-size:13px;cursor:pointer;padding:0;font-family:inherit;flex-shrink:0;line-height:1}
     .checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;color:#555;margin-bottom:8px}
     .checkbox-row input{width:16px;height:16px;accent-color:#9a7f5a}
     .btn-row{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap}
@@ -1132,6 +1140,7 @@ function adminUI(host) {
         <div class="selected-count" id="catalog-count"></div>
         <button class="select-all-btn" id="catalog-select-all" onclick="toggleSelectAll('catalog')" style="display:none">Seleccionar todos</button>
       </div>
+      <div class="ms-basket" id="catalog-basket"></div>
     </div>
 
     <div class="btn-row">
@@ -1332,6 +1341,7 @@ function adminUI(host) {
       </div>
       <div class="product-list" id="brochure-products"></div>
       <div class="selected-count" id="brochure-count"></div>
+      <div class="ms-basket" id="brochure-basket"></div>
       <div class="checkbox-row" style="margin-top:16px">
         <input type="checkbox" id="brochure-show-prices">
         <label for="brochure-show-prices" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar precios en el brochure</label>
@@ -1508,13 +1518,86 @@ function renderProducts(prefix, products, filter) {
   renderProductsFiltered(prefix, products, filter || 'all', avail);
 }
 
+// Selección persistente multi-búsqueda: Map(id → {id, title, price}) por prefix
+const _msSelection = {};
+const MS_PREFIXES = new Set(['catalog', 'brochure']);
+
+function _msMap(prefix) {
+  if (!_msSelection[prefix]) _msSelection[prefix] = new Map();
+  return _msSelection[prefix];
+}
+
+function _msAdd(prefix, p) {
+  const price = p.variants && p.variants[0] ? p.variants[0].price : '';
+  _msMap(prefix).set(String(p.id), { id: p.id, title: p.title, price });
+  _msRenderBasket(prefix);
+}
+
+function _msDel(prefix, id) {
+  _msMap(prefix).delete(String(id));
+  const cb = document.querySelector('[name="' + prefix + '_product"][value="' + id + '"]');
+  if (cb) cb.checked = false;
+  _msRenderBasket(prefix);
+}
+
+function _msSync(prefix, id, checked) {
+  if (!MS_PREFIXES.has(prefix)) return;
+  if (checked) {
+    const p = (productCache[prefix] || []).find(x => String(x.id) === String(id));
+    if (p) _msAdd(prefix, p);
+  } else {
+    _msDel(prefix, id);
+  }
+}
+
+function _msClear(prefix) {
+  _msMap(prefix).clear();
+  document.querySelectorAll('[name="' + prefix + '_product"]').forEach(cb => { cb.checked = false; });
+  _msRenderBasket(prefix);
+  const countEl = document.getElementById(prefix + '-count');
+  if (countEl) countEl.textContent = '';
+  const btn = document.getElementById(prefix + '-select-all');
+  if (btn) btn.textContent = 'Seleccionar todos';
+}
+
+function _msRenderBasket(prefix) {
+  const basket = document.getElementById(prefix + '-basket');
+  if (!basket) return;
+  const map = _msMap(prefix);
+  const countEl = document.getElementById(prefix + '-count');
+  if (!map.size) {
+    basket.style.display = 'none';
+    if (countEl) countEl.textContent = '';
+    const btn = document.getElementById(prefix + '-select-all');
+    if (btn) btn.textContent = 'Seleccionar todos';
+    return;
+  }
+  basket.style.display = 'block';
+  const items = [...map.values()];
+  const n = items.length;
+  basket.innerHTML =
+    '<div class="ms-basket-header">' +
+      '<span class="ms-basket-title">' + n + ' producto' + (n !== 1 ? 's' : '') + ' seleccionado' + (n !== 1 ? 's' : '') + '</span>' +
+      '<button class="ms-basket-clear" onclick="_msClear(\'' + prefix + '\')">Limpiar selección</button>' +
+    '</div>' +
+    items.map(function(p) {
+      return '<div class="ms-basket-item">' +
+        '<span class="ms-basket-name">' + p.title + '</span>' +
+        '<button class="ms-basket-remove" onclick="_msDel(\'' + prefix + '\',\'' + p.id + '\')">✕</button>' +
+      '</div>';
+    }).join('');
+  if (countEl) countEl.textContent = n + ' producto' + (n !== 1 ? 's' : '') + ' seleccionado' + (n !== 1 ? 's' : '');
+}
+
 function renderRows(prefix, filtered) {
   const list = document.getElementById(prefix + '-products');
   const count = document.getElementById(prefix + '-count');
+  const msActive = MS_PREFIXES.has(prefix);
+  const msMap = msActive ? _msMap(prefix) : null;
 
   if (!filtered.length) {
     list.innerHTML = '<p style="padding:12px;color:#999;font-size:13px">No se encontraron productos.</p>';
-    count.textContent = '';
+    if (!msActive) count.textContent = '';
     const btn = document.getElementById(prefix + '-select-all');
     if (btn) btn.style.display = 'none';
     return;
@@ -1535,8 +1618,12 @@ function renderRows(prefix, filtered) {
         const displayPrice = rawPrice ? new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(parseFloat(rawPrice)) : '—';
         const inventory = totalInventory(p);
         const stockColor = inventory > 0 ? '#2d6a2d' : '#c0392b';
+        const preChecked = msActive && msMap.has(String(p.id)) ? ' checked' : '';
+        const onchangeHandler = msActive
+          ? \`_msSync('\${prefix}','\${p.id}',this.checked);updateCount('\${prefix}');event.stopPropagation()\`
+          : \`updateCount('\${prefix}');event.stopPropagation()\`;
         return \`<tr onclick="toggleRow(this)">
-          <td class="col-check"><input type="checkbox" name="\${prefix}_product" value="\${p.id}" onchange="updateCount('\${prefix}');event.stopPropagation()"></td>
+          <td class="col-check"><input type="checkbox" name="\${prefix}_product" value="\${p.id}"\${preChecked} onchange="\${onchangeHandler}"></td>
           <td>\${p.title}</td>
           <td class="col-sku">\${sku}</td>
           <td class="col-price" onclick="event.stopPropagation()">
@@ -1549,7 +1636,14 @@ function renderRows(prefix, filtered) {
       }).join('')}
     </tbody>
   </table>\`;
-  count.textContent = filtered.length + ' producto(s) encontrado(s)';
+  if (msActive) {
+    const selCount = msMap.size;
+    count.textContent = selCount > 0
+      ? selCount + ' producto' + (selCount !== 1 ? 's' : '') + ' seleccionado' + (selCount !== 1 ? 's' : '') + ' · ' + filtered.length + ' encontrado' + (filtered.length !== 1 ? 's' : '')
+      : filtered.length + ' producto' + (filtered.length !== 1 ? 's' : '') + ' encontrado' + (filtered.length !== 1 ? 's' : '');
+  } else {
+    count.textContent = filtered.length + ' producto(s) encontrado(s)';
+  }
   const btn = document.getElementById(prefix + '-select-all');
   if (btn) { btn.style.display = 'block'; btn.textContent = 'Seleccionar todos'; }
 }
@@ -1558,6 +1652,7 @@ function toggleRow(tr) {
   const cb = tr.querySelector('input[type=checkbox]');
   cb.checked = !cb.checked;
   const prefix = cb.name.replace('_product', '');
+  _msSync(prefix, cb.value, cb.checked);
   updateCount(prefix);
 }
 
@@ -1573,13 +1668,25 @@ function filterByStatus(prefix, status, el) {
 function toggleSelectAll(prefix) {
   const checkboxes = document.querySelectorAll('[name="' + prefix + '_product"]');
   const allChecked = Array.from(checkboxes).every(c => c.checked);
-  checkboxes.forEach(c => c.checked = !allChecked);
+  checkboxes.forEach(function(cb) {
+    cb.checked = !allChecked;
+    _msSync(prefix, cb.value, cb.checked);
+  });
   const btn = document.getElementById(prefix + '-select-all');
-  btn.textContent = allChecked ? 'Seleccionar todos' : 'Deseleccionar todos';
+  if (btn) btn.textContent = allChecked ? 'Seleccionar todos' : 'Deseleccionar todos';
   updateCount(prefix);
 }
 
 function updateCount(prefix) {
+  if (MS_PREFIXES.has(prefix)) {
+    // Para ms-prefixes el basket se encarga del count; solo actualizamos el botón si aplica
+    const all = document.querySelectorAll('[name="' + prefix + '_product"]');
+    const allCheckedInView = all.length > 0 && Array.from(all).every(c => c.checked);
+    const btn = document.getElementById(prefix + '-select-all');
+    if (btn) btn.textContent = allCheckedInView ? 'Deseleccionar todos' : 'Seleccionar todos';
+    _msRenderBasket(prefix);
+    return;
+  }
   const all = document.querySelectorAll('[name="' + prefix + '_product"]');
   const checked = Array.from(all).filter(c => c.checked).length;
   document.getElementById(prefix + '-count').textContent = checked + ' producto(s) seleccionado(s)';
@@ -1588,6 +1695,7 @@ function updateCount(prefix) {
 }
 
 function getSelectedIds(prefix) {
+  if (MS_PREFIXES.has(prefix)) return [..._msMap(prefix).keys()];
   return Array.from(document.querySelectorAll('[name="' + prefix + '_product"]:checked')).map(c => c.value);
 }
 
