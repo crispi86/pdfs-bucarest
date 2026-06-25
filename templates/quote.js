@@ -10,6 +10,7 @@ function quoteHTML(products, options = {}) {
   }
 
   const {
+    folio = '',
     clientName = '', clientEmail = '', clientRut = '', clientCompany = '',
     clientRazonSocial = '', clientDireccion = '', validDays = 7, notes = '',
     productsPerPage = 3, showLinks = false, showDescription = true, showSku = false,
@@ -19,7 +20,7 @@ function quoteHTML(products, options = {}) {
   const LOGO = staticImages.logo || 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/logo_web.png?v=1765624776';
 
   const { dayNumber, monthName, year } = spanishDate();
-  const quoteNumber = `COT-${Date.now().toString().slice(-6)}`;
+  const quoteNumber = folio || `COT-${Date.now().toString().slice(-6)}`;
   const STORE_URL = 'https://www.bucarestart.cl';
   const ppp = Math.min(Math.max(parseInt(productsPerPage) || 3, 1), 3);
 

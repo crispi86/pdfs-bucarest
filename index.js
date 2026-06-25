@@ -552,7 +552,8 @@ app.post('/generate/catalog', async (req, res) => {
     const { product_ids, title, show_prices, show_estado, show_quienes_somos, send_email, responsable, cargo, correo, telefono, bg_image, price_overrides, meta_fields } = req.body;
     const ids = Array.isArray(product_ids) ? product_ids : [product_ids];
 
-    const [rawProducts, locations, bgImageData] = await Promise.all([
+    const [folio, rawProducts, locations, bgImageData] = await Promise.all([
+      shopify.getNextFolio('catalog'),
       Promise.all(ids.map(async id => {
         const p = await shopify.getProductById(id);
         p._metafields = await shopify.getProductMetafields(id);
@@ -569,6 +570,7 @@ app.post('/generate/catalog', async (req, res) => {
 
     const html = catalogHTML(products, {
       title: title || 'Catálogo',
+      folio,
       showPrices: show_prices !== 'false',
       showEstado: show_estado === 'true',
       showQuienesSomos: show_quienes_somos === 'true' || show_quienes_somos === true,
@@ -580,14 +582,15 @@ app.post('/generate/catalog', async (req, res) => {
       staticImages: STATIC,
     });
     const pdf = await generatePDF(html);
+    const filename = `Catalogo_${folio}.pdf`;
 
     if (send_email) {
-      await sendPDFToInternal(pdf, 'catalogo.pdf', `Catálogo — ${title || 'Bucarest Art & Antiques'}`,
-        `<p>Catálogo generado el ${new Date().toLocaleDateString('es-CL')}.</p>`);
-      res.json({ ok: true, message: 'Catálogo enviado por correo.' });
+      await sendPDFToInternal(pdf, filename, `Catálogo — ${title || 'Bucarest Art & Antiques'}`,
+        `<p>Catálogo ${folio} generado el ${new Date().toLocaleDateString('es-CL')}.</p>`);
+      res.json({ ok: true, message: `Catálogo ${folio} enviado por correo.`, folio });
     } else {
       res.set('Content-Type', 'application/pdf');
-      res.set('Content-Disposition', 'attachment; filename="catalogo.pdf"');
+      res.set('Content-Disposition', `attachment; filename="${filename}"`);
       res.send(pdf);
     }
   } catch (e) {
@@ -602,14 +605,18 @@ app.post('/generate/quote', async (req, res) => {
     const { product_ids, client_name, client_email, client_rut, client_company, client_razon_social, client_direccion, valid_days, notes, send_email, price_overrides, products_per_page, show_links, show_description, show_sku } = req.body;
     const ids = Array.isArray(product_ids) ? product_ids : [product_ids];
 
-    const rawProducts = await Promise.all(ids.map(async id => {
-      const p = await shopify.getProductById(id);
-      if (price_overrides?.[id] && p.variants?.[0]) p.variants[0].price = String(price_overrides[id]);
-      return p;
-    }));
+    const [folio, rawProducts] = await Promise.all([
+      shopify.getNextFolio('quote'),
+      Promise.all(ids.map(async id => {
+        const p = await shopify.getProductById(id);
+        if (price_overrides?.[id] && p.variants?.[0]) p.variants[0].price = String(price_overrides[id]);
+        return p;
+      })),
+    ]);
     const products = await embedProductImages(rawProducts);
 
     const html = quoteHTML(products, {
+      folio,
       clientName: client_name, clientEmail: client_email,
       clientRut: client_rut, clientCompany: client_company,
       clientRazonSocial: client_razon_social, clientDireccion: client_direccion,
@@ -621,12 +628,12 @@ app.post('/generate/quote', async (req, res) => {
       staticImages: STATIC,
     });
     const pdf = await generatePDF(html);
-    const filename = `Cotizacion_${(client_name || 'Bucarest').replace(/\s/g, '_')}.pdf`;
+    const filename = `Cotizacion_${folio}.pdf`;
 
     if (send_email && client_email) {
-      await sendPDFToInternal(pdf, filename, `Cotización — ${client_name || 'Sin nombre'}`,
-        `<p>Cotización generada para ${client_name || 'cliente sin nombre'}.</p>`);
-      res.json({ ok: true, message: 'Cotización enviada por correo.' });
+      await sendPDFToInternal(pdf, filename, `Cotización ${folio} — ${client_name || 'Sin nombre'}`,
+        `<p>Cotización ${folio} generada para ${client_name || 'cliente sin nombre'}.</p>`);
+      res.json({ ok: true, message: `Cotización ${folio} enviada por correo.`, folio });
     } else {
       res.set('Content-Type', 'application/pdf');
       res.set('Content-Disposition', `attachment; filename="${filename}"`);
@@ -701,7 +708,10 @@ app.post('/generate/brochure', async (req, res) => {
       }))),
     })));
 
+    const folio = await shopify.getNextFolio('brochure');
+
     const html = brochureHTML(products, {
+      folio,
       companyName: company_name,
       responsable, cargo, correo, telefono,
       showPrices: show_prices === true || show_prices === 'true',
@@ -716,7 +726,7 @@ app.post('/generate/brochure', async (req, res) => {
 
     const pdf = await generatePDF(html, { landscape: true });
     const safeName = (company_name || '').replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '-').toLowerCase();
-    const filename = `Brochure-Bucarest${safeName ? '-' + safeName : ''}.pdf`;
+    const filename = `Brochure-Bucarest-${folio}${safeName ? '-' + safeName : ''}.pdf`;
     res.set('Content-Type', 'application/pdf');
     res.set('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(pdf);

@@ -1,6 +1,7 @@
 function catalogHTML(products, options = {}) {
   const {
     title = 'Catálogo',
+    folio = '',
     showPrices = true,
     showEstado = false,
     showQuienesSomos = false,
@@ -128,6 +129,7 @@ function catalogHTML(products, options = {}) {
     .cover-social { display: flex; align-items: center; gap: 8px; font-size: 15px; color: #444; justify-content: center; }
     .cover-responsable { margin-top: 16px; border-top: 1px solid #d4c9b8; padding-top: 20px; width: 100%; text-align: left; font-size: 14px; color: #444; line-height: 2; }
     .cover-responsable strong { color: #1a1a1a; }
+    .cover-folio { position: absolute; bottom: 18px; right: 22px; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(26,26,26,0.35); z-index: 1; }
 
     /* ── Páginas de productos ── */
     .prod-page {
@@ -258,6 +260,7 @@ function catalogHTML(products, options = {}) {
         ${telefono ? `<div><strong>Teléfono:</strong> ${telefono}</div>` : ''}
       </div>` : ''}
     </div>
+    ${folio ? `<div class="cover-folio">${folio}</div>` : ''}
   </div>
 
   ${showQuienesSomos ? `

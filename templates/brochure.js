@@ -8,6 +8,7 @@ function paragraphs(text) {
 
 function brochureHTML(products, options = {}) {
   const {
+    folio = '',
     companyName = '',
     responsable = '',
     cargo = '',
@@ -301,6 +302,7 @@ function brochureHTML(products, options = {}) {
     .contacto-resp-name { font-size: 13px; color: #fff; font-weight: 300; }
     .contacto-resp-role { font-size: 10px; color: #9a7f5a; letter-spacing: 0.16em; text-transform: uppercase; margin-top: 1px; }
     .contacto-resp-detail { font-size: 11px; color: rgba(255,255,255,0.32); margin-top: 2px; }
+    .contacto-folio { margin-top: auto; padding-top: 24px; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.2); }
   </style>
 </head>
 <body>
@@ -513,6 +515,7 @@ function brochureHTML(products, options = {}) {
         ${cargo ? `<div class="contacto-resp-role">${cargo}</div>` : ''}
         ${(correo || telefono) ? `<div class="contacto-resp-detail">${[correo, telefono].filter(Boolean).join(' · ')}</div>` : ''}
       </div>` : ''}
+      ${folio ? `<div class="contacto-folio">${folio}</div>` : ''}
     </div>
   </div>
 
