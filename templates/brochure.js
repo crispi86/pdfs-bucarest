@@ -14,6 +14,7 @@ function brochureHTML(products, options = {}) {
     correo = '',
     telefono = '',
     showPrices = false,
+    showMetaFields = null,    // null = todos; array de keys = filtrar
     texturaImage = '',
     contextoImage = '',       // backward compat — se usa como fallback si no hay ctx por sección
     contextoImages = {},       // { quienes, servicios, porque, europa, proceso, contacto }
@@ -22,6 +23,9 @@ function brochureHTML(products, options = {}) {
     productsPerPage = 1,
     collections = [],
   } = options;
+
+  const allMeta = !Array.isArray(showMetaFields);
+  const showMf  = key => allMeta || showMetaFields.includes(key);
 
   const LOGO    = staticImages.logo || 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/logo_web.png?v=1765624776';
   const TEXTURA = texturaImage || 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura21.jpg?v=1772584942';
@@ -62,10 +66,10 @@ function brochureHTML(products, options = {}) {
     const desc = p.body_html ? p.body_html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() : '';
     const meta = p._metafields || {};
     const metaRows = [
-      meta.origen     && `<div class="prod-meta-row"><strong>Origen:</strong> ${meta.origen}</div>`,
-      meta.epocas     && `<div class="prod-meta-row"><strong>Época:</strong> ${meta.epocas}</div>`,
-      (meta.alto || meta.ancho) && `<div class="prod-meta-row"><strong>Dimensiones:</strong> ${[meta.alto && `Alto ${meta.alto}`, meta.ancho && `Ancho ${meta.ancho}`].filter(Boolean).join(' · ')}</div>`,
-      meta.materiales && `<div class="prod-meta-row"><strong>Materiales:</strong> ${meta.materiales}</div>`,
+      showMf('origen')     && meta.origen     && `<div class="prod-meta-row"><strong>Origen:</strong> ${meta.origen}</div>`,
+      showMf('epocas')     && meta.epocas     && `<div class="prod-meta-row"><strong>Época:</strong> ${meta.epocas}</div>`,
+      showMf('medidas')    && (meta.alto || meta.ancho) && `<div class="prod-meta-row"><strong>Dimensiones:</strong> ${[meta.alto && `Alto ${meta.alto}`, meta.ancho && `Ancho ${meta.ancho}`].filter(Boolean).join(' · ')}</div>`,
+      showMf('materiales') && meta.materiales && `<div class="prod-meta-row"><strong>Materiales:</strong> ${meta.materiales}</div>`,
     ].filter(Boolean).join('');
     return `
     <div class="prod-page page">
@@ -89,9 +93,9 @@ function brochureHTML(products, options = {}) {
     const desc = p.body_html ? p.body_html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() : '';
     const meta = p._metafields || {};
     const metaRows = [
-      meta.origen && `<div class="prod-meta-row-s"><strong>Origen:</strong> ${meta.origen}</div>`,
-      meta.epocas && `<div class="prod-meta-row-s"><strong>Época:</strong> ${meta.epocas}</div>`,
-      (meta.alto || meta.ancho) && `<div class="prod-meta-row-s"><strong>Dim:</strong> ${[meta.alto && `Alto ${meta.alto}`, meta.ancho && `Ancho ${meta.ancho}`].filter(Boolean).join(' · ')}</div>`,
+      showMf('origen')  && meta.origen && `<div class="prod-meta-row-s"><strong>Origen:</strong> ${meta.origen}</div>`,
+      showMf('epocas')  && meta.epocas && `<div class="prod-meta-row-s"><strong>Época:</strong> ${meta.epocas}</div>`,
+      showMf('medidas') && (meta.alto || meta.ancho) && `<div class="prod-meta-row-s"><strong>Dim:</strong> ${[meta.alto && `Alto ${meta.alto}`, meta.ancho && `Ancho ${meta.ancho}`].filter(Boolean).join(' · ')}</div>`,
     ].filter(Boolean).join('');
     return `<div class="prod-row-2up">
       <div class="prod-img-s">

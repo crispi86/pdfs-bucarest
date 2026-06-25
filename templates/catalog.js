@@ -4,6 +4,7 @@ function catalogHTML(products, options = {}) {
     showPrices = true,
     showEstado = false,
     showQuienesSomos = false,
+    showMetaFields = null,   // null = mostrar todos; array de keys = filtrar
     responsable = '',
     cargo = '',
     correo = '',
@@ -14,6 +15,10 @@ function catalogHTML(products, options = {}) {
     staticImages = {},
   } = options;
 
+  // Helper: ¿mostrar este campo de metacampo?
+  const allMeta = !Array.isArray(showMetaFields);
+  const showMf  = key => allMeta || showMetaFields.includes(key);
+
   const LOGO    = staticImages.logo    || 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/logo_web.png?v=1765624776';
   const TEXTURA = bgImageData || bgImage || 'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura21.jpg?v=1772584942';
 
@@ -22,14 +27,12 @@ function catalogHTML(products, options = {}) {
   }
 
   const META_LABELS = {
-    origen:           'Origen',
-    epocas:           'Época',
-    estilo_de_diseno: 'Estilo de diseño',
-    materiales:       'Materiales',
-    ...(showEstado ? { estado: 'Estado' } : {}),
-    ancho:            'Ancho',
-    profundidad:      'Profundidad',
-    alto:             'Alto',
+    ...(showMf('origen')     ? { origen:           'Origen'          } : {}),
+    ...(showMf('epocas')     ? { epocas:            'Época'           } : {}),
+    ...(showMf('estilo')     ? { estilo_de_diseno:  'Estilo de diseño'} : {}),
+    ...(showMf('materiales') ? { materiales:        'Materiales'      } : {}),
+    ...(showEstado           ? { estado:            'Estado'          } : {}),
+    ...(showMf('medidas')    ? { ancho: 'Ancho', profundidad: 'Profundidad', alto: 'Alto' } : {}),
   };
 
   function metaTable(meta = {}) {

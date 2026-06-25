@@ -549,7 +549,7 @@ app.post('/generate/certificate', async (req, res) => {
 // ── Generar catálogo ──────────────────────────────────────────────────────────
 app.post('/generate/catalog', async (req, res) => {
   try {
-    const { product_ids, title, show_prices, show_estado, show_quienes_somos, send_email, responsable, cargo, correo, telefono, bg_image, price_overrides } = req.body;
+    const { product_ids, title, show_prices, show_estado, show_quienes_somos, send_email, responsable, cargo, correo, telefono, bg_image, price_overrides, meta_fields } = req.body;
     const ids = Array.isArray(product_ids) ? product_ids : [product_ids];
 
     const [rawProducts, locations, bgImageData] = await Promise.all([
@@ -572,6 +572,7 @@ app.post('/generate/catalog', async (req, res) => {
       showPrices: show_prices !== 'false',
       showEstado: show_estado === 'true',
       showQuienesSomos: show_quienes_somos === 'true' || show_quienes_somos === true,
+      showMetaFields: Array.isArray(meta_fields) ? meta_fields : null,
       responsable, cargo, correo, telefono,
       bgImage: bg_image,
       bgImageData,
@@ -672,7 +673,7 @@ app.post('/generate/brochure', async (req, res) => {
     const {
       company_name, responsable, cargo, correo, telefono,
       show_prices, textura_url, contexto_images = {}, product_ids = [],
-      proyecto, products_per_page, collections = [],
+      proyecto, products_per_page, collections = [], meta_fields,
     } = req.body;
 
     let products = [];
@@ -704,6 +705,7 @@ app.post('/generate/brochure', async (req, res) => {
       companyName: company_name,
       responsable, cargo, correo, telefono,
       showPrices: show_prices === true || show_prices === 'true',
+      showMetaFields: Array.isArray(meta_fields) ? meta_fields : null,
       texturaImage: texturaData,
       contextoImages,
       staticImages: STATIC,
@@ -1078,6 +1080,14 @@ function adminUI(host) {
       <div class="checkbox-row"><input type="checkbox" id="catalog-prices" checked><label for="catalog-prices" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar precios</label></div>
       <div class="checkbox-row"><input type="checkbox" id="catalog-show-estado"><label for="catalog-show-estado" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar metacampo Estado</label></div>
       <div class="checkbox-row"><input type="checkbox" id="catalog-quienes-somos"><label for="catalog-quienes-somos" style="text-transform:none;letter-spacing:0;font-size:13px">Incluir página "Quiénes somos"</label></div>
+      <div style="margin-top:14px;border-top:1px solid #f0ece8;padding-top:12px">
+        <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#9a7f5a;margin-bottom:10px;font-weight:500">Metacampos a incluir</div>
+        <div class="checkbox-row"><input type="checkbox" id="catalog-mf-origen" checked><label for="catalog-mf-origen" style="text-transform:none;letter-spacing:0;font-size:13px">Origen</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="catalog-mf-estilo" checked><label for="catalog-mf-estilo" style="text-transform:none;letter-spacing:0;font-size:13px">Estilo</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="catalog-mf-epocas" checked><label for="catalog-mf-epocas" style="text-transform:none;letter-spacing:0;font-size:13px">Época</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="catalog-mf-materiales" checked><label for="catalog-mf-materiales" style="text-transform:none;letter-spacing:0;font-size:13px">Materiales</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="catalog-mf-medidas" checked><label for="catalog-mf-medidas" style="text-transform:none;letter-spacing:0;font-size:13px">Medidas (Ancho · Profundidad · Alto)</label></div>
+      </div>
     </div>
 
     <div class="card">
@@ -1345,6 +1355,14 @@ function adminUI(host) {
       <div class="checkbox-row" style="margin-top:16px">
         <input type="checkbox" id="brochure-show-prices">
         <label for="brochure-show-prices" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar precios en el brochure</label>
+      </div>
+      <div style="margin-top:14px;border-top:1px solid #f0ece8;padding-top:12px">
+        <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#9a7f5a;margin-bottom:10px;font-weight:500">Metacampos a incluir</div>
+        <div class="checkbox-row"><input type="checkbox" id="brochure-mf-origen" checked><label for="brochure-mf-origen" style="text-transform:none;letter-spacing:0;font-size:13px">Origen</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="brochure-mf-estilo" checked><label for="brochure-mf-estilo" style="text-transform:none;letter-spacing:0;font-size:13px">Estilo</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="brochure-mf-epocas" checked><label for="brochure-mf-epocas" style="text-transform:none;letter-spacing:0;font-size:13px">Época</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="brochure-mf-materiales" checked><label for="brochure-mf-materiales" style="text-transform:none;letter-spacing:0;font-size:13px">Materiales</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="brochure-mf-medidas" checked><label for="brochure-mf-medidas" style="text-transform:none;letter-spacing:0;font-size:13px">Medidas (Ancho · Profundidad · Alto)</label></div>
       </div>
       <div style="margin-top:14px;display:flex;align-items:center;gap:20px">
         <span style="font-size:12px;color:#666;letter-spacing:0.06em;text-transform:uppercase">Productos por página:</span>
@@ -1755,6 +1773,8 @@ async function generate(type, sendEmail = false) {
       body.show_prices = document.getElementById('catalog-prices').checked ? 'true' : 'false';
       body.show_estado = document.getElementById('catalog-show-estado').checked ? 'true' : 'false';
       body.show_quienes_somos = document.getElementById('catalog-quienes-somos').checked ? 'true' : 'false';
+      body.meta_fields = ['origen','estilo','epocas','materiales','medidas']
+        .filter(f => document.getElementById('catalog-mf-' + f)?.checked);
       body.responsable = document.getElementById('catalog-responsable').value;
       body.cargo = document.getElementById('catalog-cargo').value;
       body.correo = document.getElementById('catalog-correo').value;
@@ -2157,6 +2177,8 @@ async function generateBrochure() {
     correo:         document.getElementById('brochure-correo').value.trim(),
     telefono:       document.getElementById('brochure-telefono').value.trim(),
     show_prices:  document.getElementById('brochure-show-prices').checked,
+    meta_fields:  ['origen','estilo','epocas','materiales','medidas']
+      .filter(f => document.getElementById('brochure-mf-' + f)?.checked),
     textura_url:  document.getElementById('brochure-textura-url').value,
     contexto_images: Object.fromEntries(
       ['quienes','servicios','porque','europa','proceso','contacto']
