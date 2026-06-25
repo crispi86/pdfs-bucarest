@@ -1582,15 +1582,15 @@ function _msRenderBasket(prefix) {
   const items = [...map.values()];
   const n = items.length;
   basket.innerHTML =
-    '<div class="ms-basket-header">' +
-      '<span class="ms-basket-title">' + n + ' producto' + (n !== 1 ? 's' : '') + ' seleccionado' + (n !== 1 ? 's' : '') + '</span>' +
-      '<button class="ms-basket-clear" onclick="_msClear(\'' + prefix + '\')">Limpiar selección</button>' +
-    '</div>' +
+    \`<div class="ms-basket-header">
+      <span class="ms-basket-title">\${n} producto\${n !== 1 ? 's' : ''} seleccionado\${n !== 1 ? 's' : ''}</span>
+      <button class="ms-basket-clear" onclick="_msClear('\${prefix}')">Limpiar selección</button>
+    </div>\` +
     items.map(function(p) {
-      return '<div class="ms-basket-item">' +
-        '<span class="ms-basket-name">' + p.title + '</span>' +
-        '<button class="ms-basket-remove" onclick="_msDel(\'' + prefix + '\',\'' + p.id + '\')">✕</button>' +
-      '</div>';
+      return \`<div class="ms-basket-item">
+        <span class="ms-basket-name">\${p.title}</span>
+        <button class="ms-basket-remove" onclick="_msDel('\${prefix}','\${p.id}')">✕</button>
+      </div>\`;
     }).join('');
   if (countEl) countEl.textContent = n + ' producto' + (n !== 1 ? 's' : '') + ' seleccionado' + (n !== 1 ? 's' : '');
 }
