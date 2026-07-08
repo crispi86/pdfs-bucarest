@@ -556,6 +556,7 @@ app.post('/generate/catalog', async (req, res) => {
       shopify.getNextFolio('catalog'),
       Promise.all(ids.map(async id => {
         const p = await shopify.getProductById(id);
+        if (!p) return null;
         p._metafields = await shopify.getProductMetafields(id);
         if (price_overrides && price_overrides[id] && p.variants && p.variants[0]) {
           p.variants[0].price = String(price_overrides[id]);
@@ -566,7 +567,7 @@ app.post('/generate/catalog', async (req, res) => {
       bg_image ? fetchBase64(bg_image, 1200) : Promise.resolve(''),
     ]);
 
-    const products = await embedProductImages(rawProducts, 800);
+    const products = await embedProductImages(rawProducts.filter(Boolean), 800);
 
     const html = catalogHTML(products, {
       title: title || 'Catálogo',
@@ -686,7 +687,7 @@ app.post('/generate/brochure', async (req, res) => {
     let products = [];
     if (product_ids.length) {
       const raw = await Promise.all(product_ids.map(id => shopify.getProductById(id)));
-      const withMeta = await Promise.all(raw.map(async p => {
+      const withMeta = await Promise.all(raw.filter(Boolean).map(async p => {
         const meta = await shopify.getProductMetafields(p.id);
         return { ...p, _metafields: meta };
       }));
