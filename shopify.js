@@ -111,10 +111,16 @@ async function getProductsByTitle(keyword) {
 }
 
 async function getProductsBySku(sku) {
-  const { body } = await shopifyRequest('GET', `variants.json?sku=${encodeURIComponent(sku)}&fields=id,product_id,sku`);
-  const variants = body.variants || [];
-  const productIds = [...new Set(variants.map(v => v.product_id))];
-  return Promise.all(productIds.map(id => getProductById(id)));
+  // variants.json?sku= ignora el parámetro en la API REST; usar GraphQL que sí filtra por SKU
+  const escaped = sku.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  const data = await graphqlRequest(`{
+    products(first: 50, query: "sku:${escaped}") {
+      edges { node { legacyResourceId } }
+    }
+  }`);
+  const ids = (data?.data?.products?.edges || []).map(e => e.node.legacyResourceId);
+  if (!ids.length) return [];
+  return Promise.all(ids.map(id => getProductById(id)));
 }
 
 async function getProductsByMetafield(namespace, key, value) {
