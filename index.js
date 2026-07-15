@@ -1498,7 +1498,8 @@ function adminUI(host) {
           <input type="checkbox" id="brochure-col-prices">
           <label for="brochure-col-prices" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar precios en esta colección</label>
         </div>
-        <button class="btn btn-primary" onclick="addBrochureCollection()">+ Añadir colección al brochure</button>
+        <button id="brochure-col-add-btn" class="btn btn-primary" onclick="addBrochureCollection()">+ Añadir colección al brochure</button>
+        <button id="brochure-col-cancel-btn" class="btn btn-secondary" onclick="cancelEditBrochureCollection()" style="display:none;margin-left:8px">Cancelar edición</button>
       </div>
       <div id="brochure-col-list"></div>
     </div>
@@ -2220,6 +2221,7 @@ function selectBrochureCtx(el) {
 
 let _brochureColProducts = [];
 let _brochureCollections  = [];
+let _editColIdx           = -1;
 
 async function loadBrochureCollection() {
   const sel = document.getElementById('brochure-col-select');
@@ -2251,37 +2253,103 @@ function toggleBrochureColProduct(i, cb) {
   if (wrap) wrap.style.borderColor = cb.checked ? '#9a7f5a' : 'transparent';
 }
 
-function addBrochureCollection() {
+function _resetColPanel() {
   const sel = document.getElementById('brochure-col-select');
+  if (sel) sel.value = '';
+  const prices = document.getElementById('brochure-col-prices');
+  if (prices) prices.checked = false;
+  document.getElementById('brochure-col-products').style.display = 'none';
+  _editColIdx = -1;
+  const addBtn    = document.getElementById('brochure-col-add-btn');
+  const cancelBtn = document.getElementById('brochure-col-cancel-btn');
+  if (addBtn)    addBtn.textContent    = '+ Añadir colección al brochure';
+  if (cancelBtn) cancelBtn.style.display = 'none';
+}
+
+function cancelEditBrochureCollection() { _resetColPanel(); }
+
+function addBrochureCollection() {
+  const sel     = document.getElementById('brochure-col-select');
   const checked = [...document.querySelectorAll('#brochure-col-product-grid input[type="checkbox"]:checked')];
   if (!checked.length) return showMsg('brochure', 'Selecciona al menos una pieza.', 'err');
-  _brochureCollections.push({
+  const newCol = {
     id:         sel.value,
     title:      sel.options[sel.selectedIndex].text,
     showPrices: document.getElementById('brochure-col-prices').checked,
     products:   checked.map(cb => _brochureColProducts[parseInt(cb.dataset.idx)]),
-  });
+  };
+  if (_editColIdx >= 0) {
+    _brochureCollections[_editColIdx] = newCol;
+  } else {
+    _brochureCollections.push(newCol);
+  }
   renderBrochureCollectionList();
-  document.getElementById('brochure-col-products').style.display = 'none';
-  sel.value = '';
-  document.getElementById('brochure-col-prices').checked = false;
+  _resetColPanel();
 }
 
 function removeBrochureCollection(i) {
+  if (_editColIdx === i) _resetColPanel();
+  else if (_editColIdx > i) _editColIdx--;
   _brochureCollections.splice(i, 1);
   renderBrochureCollectionList();
 }
 
+function moveBrochureCollection(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= _brochureCollections.length) return;
+  [_brochureCollections[i], _brochureCollections[j]] = [_brochureCollections[j], _brochureCollections[i]];
+  if (_editColIdx === i) _editColIdx = j;
+  else if (_editColIdx === j) _editColIdx = i;
+  renderBrochureCollectionList();
+}
+
+async function editBrochureCollection(i) {
+  const col = _brochureCollections[i];
+  if (!col) return;
+  _editColIdx = i;
+
+  const sel = document.getElementById('brochure-col-select');
+  if (sel) sel.value = col.id;
+  const prices = document.getElementById('brochure-col-prices');
+  if (prices) prices.checked = col.showPrices;
+
+  const addBtn    = document.getElementById('brochure-col-add-btn');
+  const cancelBtn = document.getElementById('brochure-col-cancel-btn');
+  if (addBtn)    addBtn.textContent       = 'Actualizar colección';
+  if (cancelBtn) cancelBtn.style.display  = 'inline-block';
+
+  await loadBrochureCollection();
+
+  // Pre-marcar los productos que ya estaban seleccionados
+  const selectedTitles = new Set(col.products.map(p => p.title));
+  document.querySelectorAll('#brochure-col-product-grid input[type="checkbox"]').forEach(cb => {
+    const idx = parseInt(cb.dataset.idx);
+    const product = _brochureColProducts[idx];
+    if (product && selectedTitles.has(product.title)) {
+      cb.checked = true;
+      toggleBrochureColProduct(idx, cb);
+    }
+  });
+
+  document.getElementById('brochure-col-products').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
 function renderBrochureCollectionList() {
   const list = document.getElementById('brochure-col-list');
-  if (!_brochureCollections.length) { list.innerHTML = ''; return; }
+  const n = _brochureCollections.length;
+  if (!n) { list.innerHTML = ''; return; }
   list.innerHTML = _brochureCollections.map((col, i) => \`
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f5f3f0;border-radius:4px;margin-bottom:8px;border-left:3px solid #9a7f5a">
-      <div>
-        <div style="font-size:13px;font-weight:500;color:#1a1a1a">\${col.title}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f5f3f0;border-radius:4px;margin-bottom:8px;border-left:3px solid \${_editColIdx===i?'#c8a96e':'#9a7f5a'}">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;color:#1a1a1a">\${col.title}\${_editColIdx===i?' <span style="font-size:10px;color:#9a7f5a;font-weight:400">(editando…)</span>':''}</div>
         <div style="font-size:11px;color:#999;margin-top:2px">\${col.products.length} pieza\${col.products.length !== 1 ? 's' : ''}\${col.showPrices ? ' · con precios' : ''}</div>
       </div>
-      <button onclick="removeBrochureCollection(\${i})" style="background:none;border:none;color:#c00;font-size:12px;cursor:pointer;font-family:inherit;padding:0">Quitar</button>
+      <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:10px">
+        <button onclick="moveBrochureCollection(\${i},-1)" \${i===0?'disabled':''} title="Subir" style="background:none;border:1px solid #ccc;border-radius:3px;width:26px;height:26px;cursor:pointer;font-size:13px;color:#666;display:flex;align-items:center;justify-content:center;\${i===0?'opacity:0.3;cursor:default':''}">↑</button>
+        <button onclick="moveBrochureCollection(\${i},1)" \${i===n-1?'disabled':''} title="Bajar" style="background:none;border:1px solid #ccc;border-radius:3px;width:26px;height:26px;cursor:pointer;font-size:13px;color:#666;display:flex;align-items:center;justify-content:center;\${i===n-1?'opacity:0.3;cursor:default':''}">↓</button>
+        <button onclick="editBrochureCollection(\${i})" style="background:none;border:none;color:#9a7f5a;font-size:12px;cursor:pointer;font-family:inherit;padding:0 6px">Editar</button>
+        <button onclick="removeBrochureCollection(\${i})" style="background:none;border:none;color:#c00;font-size:12px;cursor:pointer;font-family:inherit;padding:0">Quitar</button>
+      </div>
     </div>\`).join('');
 }
 
