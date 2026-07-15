@@ -420,7 +420,11 @@ app.get('/api/collections', async (req, res) => {
 app.get('/api/collection-products/:id', async (req, res) => {
   try {
     const products = await shopify.getProductsByCollection(req.params.id);
-    res.json(products.map(p => ({
+    const filtered = products.filter(p =>
+      p.status === 'active' &&
+      (p.variants || []).reduce((s, v) => s + (parseInt(v.inventory_quantity) || 0), 0) >= 1
+    );
+    res.json(filtered.map(p => ({
       id: p.id,
       title: p.title,
       image: p.images?.[0]?.src || '',
@@ -506,6 +510,37 @@ app.get('/api/products', async (req, res) => {
     res.json(products);
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Proyectos guardados ───────────────────────────────────────────────────────
+app.get('/api/projects/:type', async (req, res) => {
+  try {
+    const projects = await shopify.getProjects(req.params.type);
+    res.json(projects);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.post('/api/projects/:type', async (req, res) => {
+  try {
+    const { id, name, data } = req.body;
+    if (!id || !name) return res.status(400).json({ error: 'id y name son requeridos' });
+    const project = { id, name, savedAt: new Date().toISOString(), data: data || {} };
+    const projects = await shopify.saveProject(req.params.type, project);
+    res.json(projects);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.delete('/api/projects/:type/:id', async (req, res) => {
+  try {
+    const projects = await shopify.deleteProject(req.params.type, req.params.id);
+    res.json(projects);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
   }
 });
 
@@ -682,6 +717,7 @@ app.post('/generate/brochure', async (req, res) => {
       company_name, responsable, cargo, correo, telefono,
       show_prices, textura_url, contexto_images = {}, product_ids = [],
       proyecto, products_per_page, collections = [], meta_fields,
+      cover_tag, cover_title, cover_sub,
     } = req.body;
 
     let products = [];
@@ -723,6 +759,9 @@ app.post('/generate/brochure', async (req, res) => {
       proyecto: proyecto || '',
       productsPerPage: parseInt(products_per_page) || 1,
       collections: collectionsEmbedded,
+      ...(cover_tag   && { coverTag:   cover_tag   }),
+      ...(cover_title && { coverTitle: cover_title }),
+      ...(cover_sub   && { coverSub:   cover_sub   }),
     });
 
     const pdf = await generatePDF(html, { landscape: true });
@@ -1164,6 +1203,16 @@ function adminUI(host) {
       <div class="ms-basket" id="catalog-basket"></div>
     </div>
 
+    <div class="card">
+      <span class="section-label">Proyectos guardados</span>
+      <p style="font-size:12px;color:#999;margin-bottom:12px">Guarda la configuración actual para retomar o reutilizar luego desde cualquier dispositivo.</p>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <input id="catalog-project-name" placeholder="Nombre del proyecto (ej: Catálogo verano 2026)" style="flex:1">
+        <button class="btn btn-secondary" onclick="saveProject('catalog')" style="white-space:nowrap">Guardar</button>
+      </div>
+      <div id="catalog-projects-list"></div>
+    </div>
+
     <div class="btn-row">
       <button class="btn btn-primary" onclick="generate('catalog')">Descargar catálogo</button>
       <button class="btn btn-secondary" onclick="generate('catalog', true)">Enviar a correo interno</button>
@@ -1253,6 +1302,16 @@ function adminUI(host) {
       <div class="checkbox-row"><input type="checkbox" id="quote-show-sku"><label for="quote-show-sku" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar SKU</label></div>
     </div>
 
+    <div class="card">
+      <span class="section-label">Proyectos guardados</span>
+      <p style="font-size:12px;color:#999;margin-bottom:12px">Guarda la configuración actual para retomar o reutilizar luego desde cualquier dispositivo.</p>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <input id="quote-project-name" placeholder="Nombre del proyecto (ej: Cotización empresa ABC)" style="flex:1">
+        <button class="btn btn-secondary" onclick="saveProject('quote')" style="white-space:nowrap">Guardar</button>
+      </div>
+      <div id="quote-projects-list"></div>
+    </div>
+
     <div class="btn-row">
       <button class="btn btn-primary" onclick="generate('quote')">Descargar cotización</button>
     </div>
@@ -1296,6 +1355,19 @@ function adminUI(host) {
         <label>Correo <input id="brochure-correo" type="email" placeholder="cristobal@bucarestart.cl"></label>
         <label>Teléfono <input id="brochure-telefono" placeholder="+56 9 3342 3442"></label>
       </div>
+    </div>
+
+    <div class="card">
+      <span class="section-label">Textos de portada</span>
+      <label>Sobre-título
+        <input id="brochure-cover-tag" placeholder="Propuesta Corporativa">
+      </label>
+      <label>Título principal
+        <textarea id="brochure-cover-title" rows="2" placeholder="Soluciones Corporativas en Arte &amp; Antigüedades" style="width:100%;resize:vertical;font-family:inherit;font-size:14px;padding:8px;border:1px solid #e0d8cc;border-radius:4px;background:#faf8f5"></textarea>
+      </label>
+      <label>Bajada de título
+        <textarea id="brochure-cover-sub" rows="3" placeholder="Mobiliario, decoración exclusiva y regalos corporativos para empresas que buscan diferenciarse." style="width:100%;resize:vertical;font-family:inherit;font-size:14px;padding:8px;border:1px solid #e0d8cc;border-radius:4px;background:#faf8f5"></textarea>
+      </label>
     </div>
 
     <div class="card">
@@ -1412,6 +1484,16 @@ function adminUI(host) {
       <p style="font-size:12px;color:#999;margin-bottom:12px">Describe el proyecto específico que estás ofreciendo a esta empresa — decorar sus oficinas, renovar la sala del directorio, regalos para sus clientes VIP, etc. Aparece como página propia en el brochure.</p>
       <textarea id="brochure-proyecto" rows="7" placeholder="Ejemplo: En base a nuestra reunión del 15 de junio, proponemos intervenir el salón del directorio y la recepción principal de su sede con una selección de 8 piezas antiguas de origen francés…" style="resize:vertical"></textarea>
       <p style="font-size:11px;color:#bbb;margin-top:6px">Si lo dejas vacío, el brochure irá directo de la portada a «Quiénes somos».</p>
+    </div>
+
+    <div class="card">
+      <span class="section-label">Proyectos guardados</span>
+      <p style="font-size:12px;color:#999;margin-bottom:12px">Guarda la configuración actual para retomar o reutilizar luego desde cualquier dispositivo.</p>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <input id="brochure-project-name" placeholder="Nombre del proyecto (ej: Empresa XYZ jun 2026)" style="flex:1">
+        <button class="btn btn-secondary" onclick="saveProject('brochure')" style="white-space:nowrap">Guardar</button>
+      </div>
+      <div id="brochure-projects-list"></div>
     </div>
 
     <div class="btn-row">
@@ -2204,6 +2286,9 @@ async function generateBrochure() {
       showPrices: col.showPrices,
       products:   col.products.map(p => ({ title: p.title, image: p.image, price: p.price })),
     })),
+    cover_tag:   document.getElementById('brochure-cover-tag').value.trim() || undefined,
+    cover_title: document.getElementById('brochure-cover-title').value.trim() || undefined,
+    cover_sub:   document.getElementById('brochure-cover-sub').value.trim() || undefined,
   };
   try {
     const res = await fetch('/generate/brochure', {
@@ -2264,6 +2349,212 @@ function clearBgImage() {
   document.getElementById('catalog-bg-url').value = '';
   document.getElementById('catalog-bg-selected').style.display = 'none';
 }
+
+// ── Proyectos guardados ───────────────────────────────────────────────────────
+
+function _collectBrochureState() {
+  return {
+    company_name:    document.getElementById('brochure-company')?.value.trim() || '',
+    responsable:     document.getElementById('brochure-responsable')?.value.trim() || '',
+    cargo:           document.getElementById('brochure-cargo')?.value.trim() || '',
+    correo:          document.getElementById('brochure-correo')?.value.trim() || '',
+    telefono:        document.getElementById('brochure-telefono')?.value.trim() || '',
+    show_prices:     document.getElementById('brochure-show-prices')?.checked || false,
+    textura_url:     document.getElementById('brochure-textura-url')?.value || '',
+    cover_tag:       document.getElementById('brochure-cover-tag')?.value.trim() || '',
+    cover_title:     document.getElementById('brochure-cover-title')?.value.trim() || '',
+    cover_sub:       document.getElementById('brochure-cover-sub')?.value.trim() || '',
+    meta_fields:     ['origen','estilo','epocas','materiales','medidas'].filter(f => document.getElementById('brochure-mf-' + f)?.checked),
+    products_per_page: document.querySelector('input[name="brochure-ppp"]:checked')?.value || '1',
+    proyecto:        document.getElementById('brochure-proyecto')?.value.trim() || '',
+    product_ids:     getSelectedIds('brochure'),
+    collections:     _brochureCollections.map(col => ({ title: col.title, showPrices: col.showPrices, products: col.products.map(p => ({ title: p.title, image: p.image, price: p.price })) })),
+    contexto_images: Object.fromEntries(['quienes','servicios','porque','europa','proceso','contacto'].map(s => [s, document.getElementById(\`ctx-\${s}-url\`)?.value || '']).filter(([,v]) => v)),
+  };
+}
+
+function _collectCatalogState() {
+  return {
+    title:          document.getElementById('catalog-title')?.value.trim() || '',
+    show_prices:    document.getElementById('catalog-show-prices')?.checked || false,
+    show_estado:    document.getElementById('catalog-show-estado')?.checked || false,
+    show_quienes:   document.getElementById('catalog-show-quienes')?.checked || false,
+    responsable:    document.getElementById('catalog-responsable')?.value.trim() || '',
+    cargo:          document.getElementById('catalog-cargo')?.value.trim() || '',
+    correo:         document.getElementById('catalog-correo')?.value.trim() || '',
+    telefono:       document.getElementById('catalog-telefono')?.value.trim() || '',
+    meta_fields:    ['origen','estilo','epocas','materiales','medidas'].filter(f => document.getElementById('catalog-mf-' + f)?.checked),
+    bg_image:       document.getElementById('catalog-bg-url')?.value || '',
+    product_ids:    getSelectedIds('catalog'),
+  };
+}
+
+function _collectQuoteState() {
+  return {
+    client_name:      document.getElementById('quote-client-name')?.value.trim() || '',
+    client_email:     document.getElementById('quote-client-email')?.value.trim() || '',
+    client_rut:       document.getElementById('quote-client-rut')?.value.trim() || '',
+    client_company:   document.getElementById('quote-client-company')?.value.trim() || '',
+    client_razon:     document.getElementById('quote-client-razon')?.value.trim() || '',
+    client_direccion: document.getElementById('quote-client-direccion')?.value.trim() || '',
+    valid_days:       document.getElementById('quote-valid-days')?.value.trim() || '',
+    notes:            document.getElementById('quote-notes')?.value.trim() || '',
+    products_per_page: document.getElementById('quote-ppp')?.value || '3',
+    show_links:       document.getElementById('quote-show-links')?.checked || false,
+    show_description: document.getElementById('quote-show-desc')?.checked !== false,
+    show_sku:         document.getElementById('quote-show-sku')?.checked || false,
+    product_ids:      getSelectedIds('quote'),
+  };
+}
+
+function _restoreBrochureState(data) {
+  if (!data) return;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  const chk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = val; };
+  set('brochure-company', data.company_name || '');
+  set('brochure-responsable', data.responsable || '');
+  set('brochure-cargo', data.cargo || '');
+  set('brochure-correo', data.correo || '');
+  set('brochure-telefono', data.telefono || '');
+  chk('brochure-show-prices', !!data.show_prices);
+  set('brochure-textura-url', data.textura_url || '');
+  set('brochure-cover-tag', data.cover_tag || '');
+  set('brochure-cover-title', data.cover_title || '');
+  set('brochure-cover-sub', data.cover_sub || '');
+  set('brochure-proyecto', data.proyecto || '');
+  if (data.textura_url) {
+    document.querySelectorAll('#brochure-texture-grid .texture-thumb').forEach(t => {
+      t.classList.toggle('selected', t.dataset.url === data.textura_url);
+    });
+  }
+  ['origen','estilo','epocas','materiales','medidas'].forEach(f => chk('brochure-mf-' + f, (data.meta_fields || []).includes(f)));
+  const ppp = data.products_per_page || '1';
+  const pppEl = document.querySelector(\`input[name="brochure-ppp"][value="\${ppp}"]\`);
+  if (pppEl) pppEl.checked = true;
+  if (Array.isArray(data.product_ids) && data.product_ids.length) {
+    const map = _msMap('brochure');
+    map.clear();
+    data.product_ids.forEach(id => map.set(id, { id }));
+    renderBasket('brochure');
+  }
+}
+
+function _restoreCatalogState(data) {
+  if (!data) return;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  const chk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = val; };
+  set('catalog-title', data.title || '');
+  chk('catalog-show-prices', !!data.show_prices);
+  chk('catalog-show-estado', !!data.show_estado);
+  chk('catalog-show-quienes', !!data.show_quienes);
+  set('catalog-responsable', data.responsable || '');
+  set('catalog-cargo', data.cargo || '');
+  set('catalog-correo', data.correo || '');
+  set('catalog-telefono', data.telefono || '');
+  ['origen','estilo','epocas','materiales','medidas'].forEach(f => chk('catalog-mf-' + f, (data.meta_fields || []).includes(f)));
+  set('catalog-bg-url', data.bg_image || '');
+  if (Array.isArray(data.product_ids) && data.product_ids.length) {
+    const map = _msMap('catalog');
+    map.clear();
+    data.product_ids.forEach(id => map.set(id, { id }));
+    renderBasket('catalog');
+  }
+}
+
+function _restoreQuoteState(data) {
+  if (!data) return;
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  const chk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = val; };
+  set('quote-client-name', data.client_name || '');
+  set('quote-client-email', data.client_email || '');
+  set('quote-client-rut', data.client_rut || '');
+  set('quote-client-company', data.client_company || '');
+  set('quote-client-razon', data.client_razon || '');
+  set('quote-client-direccion', data.client_direccion || '');
+  set('quote-valid-days', data.valid_days || '');
+  set('quote-notes', data.notes || '');
+  chk('quote-show-links', !!data.show_links);
+  chk('quote-show-desc', data.show_description !== false);
+  chk('quote-show-sku', !!data.show_sku);
+  if (Array.isArray(data.product_ids) && data.product_ids.length) {
+    const map = _msMap('quote');
+    map.clear();
+    data.product_ids.forEach(id => map.set(id, { id }));
+    renderBasket('quote');
+  }
+}
+
+const _projectCollectors = { brochure: _collectBrochureState, catalog: _collectCatalogState, quote: _collectQuoteState };
+const _projectRestorers  = { brochure: _restoreBrochureState, catalog: _restoreCatalogState, quote: _restoreQuoteState };
+
+async function saveProject(type) {
+  const nameEl = document.getElementById(\`\${type}-project-name\`);
+  const name = nameEl?.value.trim();
+  if (!name) { alert('Escribe un nombre para el proyecto antes de guardar.'); return; }
+  const data = (_projectCollectors[type] || (() => ({})))();
+  const id = \`\${type}-\${Date.now()}\`;
+  try {
+    await fetch(\`/api/projects/\${type}\`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, name, data }),
+    });
+    if (nameEl) nameEl.value = '';
+    await loadProjects(type);
+  } catch(e) {
+    alert('Error guardando proyecto: ' + e.message);
+  }
+}
+
+async function loadProjects(type) {
+  const listEl = document.getElementById(\`\${type}-projects-list\`);
+  if (!listEl) return;
+  try {
+    const res = await fetch(\`/api/projects/\${type}\`);
+    const projects = await res.json();
+    if (!projects.length) { listEl.innerHTML = '<p style="font-size:12px;color:#bbb;margin:0">No hay proyectos guardados.</p>'; return; }
+    listEl.innerHTML = projects.map(p => \`
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0ece5">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600;color:#3d2b1f">\${p.name}</div>
+          <div style="font-size:11px;color:#bbb">\${new Date(p.savedAt).toLocaleString('es-CL')}</div>
+        </div>
+        <button class="btn btn-secondary" style="padding:4px 10px;font-size:11px" onclick="applyProject('\${type}','\${p.id}')">Cargar</button>
+        <button class="btn" style="padding:4px 10px;font-size:11px;background:#fff0f0;color:#c00;border:1px solid #fcc" onclick="deleteProjectUI('\${type}','\${p.id}')">Eliminar</button>
+      </div>
+    \`).join('');
+    listEl._projects = projects;
+  } catch(e) {
+    listEl.innerHTML = '<p style="font-size:12px;color:#c00;margin:0">Error cargando proyectos.</p>';
+  }
+}
+
+function applyProject(type, id) {
+  const listEl = document.getElementById(\`\${type}-projects-list\`);
+  const projects = listEl?._projects || [];
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  const nameEl = document.getElementById(\`\${type}-project-name\`);
+  if (nameEl) nameEl.value = p.name;
+  (_projectRestorers[type] || (() => {}))(p.data);
+}
+
+async function deleteProjectUI(type, id) {
+  if (!confirm('¿Eliminar este proyecto?')) return;
+  try {
+    await fetch(\`/api/projects/\${type}/\${id}\`, { method: 'DELETE' });
+    await loadProjects(type);
+  } catch(e) {
+    alert('Error eliminando proyecto: ' + e.message);
+  }
+}
+
+// Cargar proyectos al inicio
+window.addEventListener('DOMContentLoaded', () => {
+  loadProjects('brochure');
+  loadProjects('catalog');
+  loadProjects('quote');
+});
 
 </script>
 </body>

@@ -315,6 +315,59 @@ async function getNextCertFolio() {
   return getNextFolio('cert');
 }
 
+// ── Proyectos guardados (Shopify metafields, namespace=bucarest) ──────────────
+
+const VALID_PROJECT_TYPES = new Set(['brochure', 'catalog', 'quote']);
+
+async function getProjects(type) {
+  if (!VALID_PROJECT_TYPES.has(type)) throw new Error(`Tipo inválido: ${type}`);
+  const key = `${type}_projects`;
+  const { body } = await shopifyRequest('GET', `shop/metafields.json?namespace=bucarest&key=${key}`);
+  const existing = (body.metafields || [])[0];
+  if (!existing) return [];
+  try { return JSON.parse(existing.value) || []; } catch { return []; }
+}
+
+async function saveProject(type, project) {
+  if (!VALID_PROJECT_TYPES.has(type)) throw new Error(`Tipo inválido: ${type}`);
+  const key = `${type}_projects`;
+  const { body } = await shopifyRequest('GET', `shop/metafields.json?namespace=bucarest&key=${key}`);
+  const existing = (body.metafields || [])[0];
+  let projects = [];
+  if (existing) {
+    try { projects = JSON.parse(existing.value) || []; } catch { projects = []; }
+  }
+  const idx = projects.findIndex(p => p.id === project.id);
+  if (idx >= 0) projects[idx] = project;
+  else projects.push(project);
+
+  if (existing) {
+    await shopifyRequest('PUT', `metafields/${existing.id}.json`, {
+      metafield: { id: existing.id, value: JSON.stringify(projects), type: 'json' },
+    });
+  } else {
+    await shopifyRequest('POST', 'shop/metafields.json', {
+      metafield: { namespace: 'bucarest', key, value: JSON.stringify(projects), type: 'json' },
+    });
+  }
+  return projects;
+}
+
+async function deleteProject(type, projectId) {
+  if (!VALID_PROJECT_TYPES.has(type)) throw new Error(`Tipo inválido: ${type}`);
+  const key = `${type}_projects`;
+  const { body } = await shopifyRequest('GET', `shop/metafields.json?namespace=bucarest&key=${key}`);
+  const existing = (body.metafields || [])[0];
+  if (!existing) return [];
+  let projects = [];
+  try { projects = JSON.parse(existing.value) || []; } catch { projects = []; }
+  projects = projects.filter(p => p.id !== projectId);
+  await shopifyRequest('PUT', `metafields/${existing.id}.json`, {
+    metafield: { id: existing.id, value: JSON.stringify(projects), type: 'json' },
+  });
+  return projects;
+}
+
 async function getLocations() {
   const { body } = await shopifyRequest('GET', 'locations.json');
   return (body.locations || []).filter(l => l.active);
@@ -345,4 +398,7 @@ module.exports = {
   isProductInCollection,
   getAllPages,
   getFilesByKeyword,
+  getProjects,
+  saveProject,
+  deleteProject,
 };
