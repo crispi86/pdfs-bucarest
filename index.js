@@ -740,13 +740,24 @@ app.post('/generate/brochure', async (req, res) => {
     ]);
     const contextoImages = Object.fromEntries(CTX_SECTIONS.map((k, i) => [k, ctxDataArr[i]]));
 
-    const collectionsEmbedded = await Promise.all((collections || []).map(async col => ({
-      ...col,
-      products: await Promise.all((col.products || []).map(async p => ({
-        ...p,
-        image: p.image ? await fetchBase64(p.image, 400) : '',
-      }))),
-    })));
+    const collectionsEmbedded = await Promise.all((collections || []).map(async col => {
+      let products = col.products || [];
+      if (!products.length && Array.isArray(col.product_ids) && col.product_ids.length) {
+        const fetched = await Promise.all(col.product_ids.map(id => shopify.getProductById(id).catch(() => null)));
+        products = fetched.filter(Boolean).map(p => ({
+          title: p.title,
+          image: p.images?.[0]?.src || '',
+          price: p.variants?.[0]?.price || '',
+        }));
+      }
+      return {
+        ...col,
+        products: await Promise.all(products.map(async p => ({
+          ...p,
+          image: p.image ? await fetchBase64(p.image, 400) : '',
+        }))),
+      };
+    }));
 
     const folio = await shopify.getNextFolio('brochure');
 
@@ -2272,11 +2283,13 @@ function addBrochureCollection() {
   const sel     = document.getElementById('brochure-col-select');
   const checked = [...document.querySelectorAll('#brochure-col-product-grid input[type="checkbox"]:checked')];
   if (!checked.length) return showMsg('brochure', 'Selecciona al menos una pieza.', 'err');
+  const selectedProducts = checked.map(cb => _brochureColProducts[parseInt(cb.dataset.idx)]);
   const newCol = {
-    id:         sel.value,
-    title:      sel.options[sel.selectedIndex].text,
-    showPrices: document.getElementById('brochure-col-prices').checked,
-    products:   checked.map(cb => _brochureColProducts[parseInt(cb.dataset.idx)]),
+    id:          sel.value,
+    title:       sel.options[sel.selectedIndex].text,
+    showPrices:  document.getElementById('brochure-col-prices').checked,
+    products:    selectedProducts,
+    _productIds: selectedProducts.map(p => String(p.id)),
   };
   if (_editColIdx >= 0) {
     _brochureCollections[_editColIdx] = newCol;
@@ -2320,12 +2333,12 @@ async function editBrochureCollection(i) {
 
   await loadBrochureCollection();
 
-  // Pre-marcar los productos que ya estaban seleccionados
-  const selectedTitles = new Set(col.products.map(p => p.title));
+  // Pre-marcar los productos que ya estaban seleccionados (por ID, más robusto que título)
+  const selectedIds = new Set(col._productIds || col.products.map(p => String(p.id)));
   document.querySelectorAll('#brochure-col-product-grid input[type="checkbox"]').forEach(cb => {
     const idx = parseInt(cb.dataset.idx);
     const product = _brochureColProducts[idx];
-    if (product && selectedTitles.has(product.title)) {
+    if (product && selectedIds.has(String(product.id))) {
       cb.checked = true;
       toggleBrochureColProduct(idx, cb);
     }
@@ -2342,7 +2355,7 @@ function renderBrochureCollectionList() {
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f5f3f0;border-radius:4px;margin-bottom:8px;border-left:3px solid \${_editColIdx===i?'#c8a96e':'#9a7f5a'}">
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:500;color:#1a1a1a">\${col.title}\${_editColIdx===i?' <span style="font-size:10px;color:#9a7f5a;font-weight:400">(editando…)</span>':''}</div>
-        <div style="font-size:11px;color:#999;margin-top:2px">\${col.products.length} pieza\${col.products.length !== 1 ? 's' : ''}\${col.showPrices ? ' · con precios' : ''}</div>
+        <div style="font-size:11px;color:#999;margin-top:2px">\${(col._productIds?.length || col.products.length)} pieza\${(col._productIds?.length || col.products.length) !== 1 ? 's' : ''}\${col.showPrices ? ' · con precios' : ''}</div>
       </div>
       <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:10px">
         <button onclick="moveBrochureCollection(\${i},-1)" \${i===0?'disabled':''} title="Subir" style="background:none;border:1px solid #ccc;border-radius:3px;width:26px;height:26px;cursor:pointer;font-size:13px;color:#666;display:flex;align-items:center;justify-content:center;\${i===0?'opacity:0.3;cursor:default':''}">↑</button>
@@ -2471,7 +2484,7 @@ function _collectBrochureState() {
     proyecto:        document.getElementById('brochure-proyecto')?.value.trim() || '',
     product_ids:     getSelectedIds('brochure'),
     _ms_products:    [..._msMap('brochure').values()],
-    collections:     _brochureCollections.map(col => ({ title: col.title, showPrices: col.showPrices, products: col.products.map(p => ({ title: p.title, image: p.image, price: p.price })) })),
+    collections:     _brochureCollections.map(col => ({ id: col.id, title: col.title, showPrices: col.showPrices, product_ids: (col._productIds || col.products.map(p => String(p.id))).filter(Boolean) })),
     contexto_images: Object.fromEntries(['quienes','rescate','servicios','regalos','porque','europa','proceso','contacto'].map(s => [s, document.getElementById(\`ctx-\${s}-url\`)?.value || '']).filter(([,v]) => v)),
     pages: [
       ['brochure-page-quienes',   'quienes'],
@@ -2569,6 +2582,16 @@ function _restoreBrochureState(data) {
     map.clear();
     msItems.forEach(p => map.set(String(p.id), p));
     _msRenderBasket('brochure');
+  }
+  if (Array.isArray(data.collections) && data.collections.length) {
+    _brochureCollections = data.collections.map(col => ({
+      id:          col.id || '',
+      title:       col.title || '',
+      showPrices:  !!col.showPrices,
+      products:    [],
+      _productIds: col.product_ids || [],
+    }));
+    renderBrochureCollectionList();
   }
 }
 
