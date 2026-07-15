@@ -2234,16 +2234,20 @@ let _brochureColProducts = [];
 let _brochureCollections  = [];
 let _editColIdx           = -1;
 
-async function loadBrochureCollection() {
+async function loadBrochureCollection(overrideId) {
   const sel = document.getElementById('brochure-col-select');
-  if (!sel.value) return;
+  const colId = overrideId || sel.value;
+  if (!colId) return;
+  if (overrideId && sel.value !== String(overrideId)) sel.value = String(overrideId);
   const grid = document.getElementById('brochure-col-product-grid');
   const panel = document.getElementById('brochure-col-products');
   grid.innerHTML = '<div style="color:#999;font-size:13px;grid-column:1/-1">Cargando piezas…</div>';
   panel.style.display = 'block';
   try {
-    const res = await fetch(\`/api/collection-products/\${sel.value}\`);
-    _brochureColProducts = await res.json();
+    const res = await fetch(\`/api/collection-products/\${colId}\`);
+    const json = await res.json();
+    _brochureColProducts = Array.isArray(json) ? json : [];
+    if (!_brochureColProducts.length) { grid.innerHTML = '<div style="color:#999;font-size:13px;grid-column:1/-1">No hay piezas disponibles en esta colección.</div>'; return; }
     grid.innerHTML = _brochureColProducts.map((p, i) => \`
       <label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px">
         <div style="position:relative;width:100%;aspect-ratio:1;background:#e8e4df;overflow:hidden;border-radius:3px;border:2px solid transparent" id="bcp-wrap-\${i}">
@@ -2320,9 +2324,8 @@ async function editBrochureCollection(i) {
   const col = _brochureCollections[i];
   if (!col) return;
   _editColIdx = i;
+  renderBrochureCollectionList();
 
-  const sel = document.getElementById('brochure-col-select');
-  if (sel) sel.value = col.id;
   const prices = document.getElementById('brochure-col-prices');
   if (prices) prices.checked = col.showPrices;
 
@@ -2331,7 +2334,7 @@ async function editBrochureCollection(i) {
   if (addBtn)    addBtn.textContent       = 'Actualizar colección';
   if (cancelBtn) cancelBtn.style.display  = 'inline-block';
 
-  await loadBrochureCollection();
+  await loadBrochureCollection(col.id);
 
   // Pre-marcar los productos que ya estaban seleccionados (por ID, más robusto que título)
   const selectedIds = new Set(col._productIds || col.products.map(p => String(p.id)));
