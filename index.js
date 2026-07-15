@@ -528,9 +528,12 @@ app.post('/api/projects/:type', async (req, res) => {
     const { id, name, data } = req.body;
     if (!id || !name) return res.status(400).json({ error: 'id y name son requeridos' });
     const project = { id, name, savedAt: new Date().toISOString(), data: data || {} };
+    console.log(`[projects] guardando ${req.params.type}:`, id, name);
     const projects = await shopify.saveProject(req.params.type, project);
+    console.log(`[projects] guardado OK, total: ${projects.length}`);
     res.json(projects);
   } catch (e) {
+    console.error(`[projects] error guardando ${req.params.type}:`, e.message);
     res.status(400).json({ error: e.message });
   }
 });
@@ -2552,11 +2555,15 @@ async function saveProject(type) {
   const data = (_projectCollectors[type] || (() => ({})))();
   const id = \`\${type}-\${Date.now()}\`;
   try {
-    await fetch(\`/api/projects/\${type}\`, {
+    const res = await fetch(\`/api/projects/\${type}\`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, name, data }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || \`HTTP \${res.status}\`);
+    }
     if (nameEl) nameEl.value = '';
     await loadProjects(type);
   } catch(e) {
@@ -2569,8 +2576,9 @@ async function loadProjects(type) {
   if (!listEl) return;
   try {
     const res = await fetch(\`/api/projects/\${type}\`);
+    if (!res.ok) throw new Error(\`HTTP \${res.status}\`);
     const projects = await res.json();
-    if (!projects.length) { listEl.innerHTML = '<p style="font-size:12px;color:#bbb;margin:0">No hay proyectos guardados.</p>'; return; }
+    if (!Array.isArray(projects) || !projects.length) { listEl.innerHTML = '<p style="font-size:12px;color:#bbb;margin:0">No hay proyectos guardados.</p>'; return; }
     listEl.innerHTML = projects.map(p => \`
       <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f0ece5">
         <div style="flex:1">

@@ -319,13 +319,22 @@ async function getNextCertFolio() {
 
 const VALID_PROJECT_TYPES = new Set(['brochure', 'catalog', 'quote']);
 
+function _parseProjectValue(value) {
+  if (Array.isArray(value)) return value;
+  if (value === null || value === undefined) return [];
+  if (typeof value === 'string') {
+    try { const p = JSON.parse(value); return Array.isArray(p) ? p : []; } catch { return []; }
+  }
+  return [];
+}
+
 async function getProjects(type) {
   if (!VALID_PROJECT_TYPES.has(type)) throw new Error(`Tipo inválido: ${type}`);
   const key = `${type}_projects`;
   const { body } = await shopifyRequest('GET', `shop/metafields.json?namespace=bucarest&key=${key}`);
   const existing = (body.metafields || [])[0];
   if (!existing) return [];
-  try { return JSON.parse(existing.value) || []; } catch { return []; }
+  return _parseProjectValue(existing.value);
 }
 
 async function saveProject(type, project) {
@@ -333,10 +342,7 @@ async function saveProject(type, project) {
   const key = `${type}_projects`;
   const { body } = await shopifyRequest('GET', `shop/metafields.json?namespace=bucarest&key=${key}`);
   const existing = (body.metafields || [])[0];
-  let projects = [];
-  if (existing) {
-    try { projects = JSON.parse(existing.value) || []; } catch { projects = []; }
-  }
+  let projects = existing ? _parseProjectValue(existing.value) : [];
   const idx = projects.findIndex(p => p.id === project.id);
   if (idx >= 0) projects[idx] = project;
   else projects.push(project);
@@ -359,8 +365,7 @@ async function deleteProject(type, projectId) {
   const { body } = await shopifyRequest('GET', `shop/metafields.json?namespace=bucarest&key=${key}`);
   const existing = (body.metafields || [])[0];
   if (!existing) return [];
-  let projects = [];
-  try { projects = JSON.parse(existing.value) || []; } catch { projects = []; }
+  let projects = _parseProjectValue(existing.value);
   projects = projects.filter(p => p.id !== projectId);
   await shopifyRequest('PUT', `metafields/${existing.id}.json`, {
     metafield: { id: existing.id, value: JSON.stringify(projects), type: 'json' },
