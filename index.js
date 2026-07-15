@@ -762,7 +762,7 @@ app.post('/generate/brochure', async (req, res) => {
       ...(cover_tag   && { coverTag:   cover_tag   }),
       ...(cover_title && { coverTitle: cover_title }),
       ...(cover_sub   && { coverSub:   cover_sub   }),
-      ...(Array.isArray(pages) && pages.length ? { pages } : {}),
+      ...(Array.isArray(pages) ? { pages } : {}),
     });
 
     const pdf = await generatePDF(html, { landscape: true });
@@ -1720,7 +1720,7 @@ function _msRenderBasket(prefix) {
     </div>\` +
     items.map(function(p) {
       return \`<div class="ms-basket-item">
-        <span class="ms-basket-name">\${p.title}</span>
+        <span class="ms-basket-name">\${p.title || 'ID: ' + p.id}</span>
         <button class="ms-basket-remove" onclick="_msDel('\${prefix}','\${p.id}')">✕</button>
       </div>\`;
     }).join('');
@@ -1843,7 +1843,8 @@ function showMsg(prefix, text, type) {
   el.textContent = text;
   el.className = 'msg ' + type;
   el.style.display = 'block';
-  if (type !== 'ok' || text !== 'Generando certificado…') {
+  const isLoadingMsg = text.startsWith('Generando') || text.startsWith('Cargando');
+  if (type !== 'ok' || !isLoadingMsg) {
     setTimeout(() => { el.style.display = 'none'; }, 6000);
   }
 }
@@ -2282,7 +2283,7 @@ function renderBrochureCollectionList() {
 }
 
 async function generateBrochure() {
-  showMsg('brochure', 'Generando brochure…', '');
+  showMsg('brochure', 'Generando brochure…', 'ok');
   const ids = getSelectedIds('brochure');
   const body = {
     company_name:   document.getElementById('brochure-company').value.trim(),
@@ -2366,7 +2367,7 @@ async function loadTexturePicker() {
 }
 
 function selectTexture(url, el) {
-  document.querySelectorAll('.texture-thumb').forEach(t => t.classList.remove('selected'));
+  document.querySelectorAll('#texture-picker-grid .texture-thumb').forEach(t => t.classList.remove('selected'));
   el.classList.add('selected');
   document.getElementById('catalog-bg-url').value = url;
   const name = url.split('/').pop().split('?')[0];
@@ -2375,7 +2376,7 @@ function selectTexture(url, el) {
 }
 
 function clearBgImage() {
-  document.querySelectorAll('.texture-thumb').forEach(t => t.classList.remove('selected'));
+  document.querySelectorAll('#texture-picker-grid .texture-thumb').forEach(t => t.classList.remove('selected'));
   document.getElementById('catalog-bg-url').value = '';
   document.getElementById('catalog-bg-selected').style.display = 'none';
 }
@@ -2398,6 +2399,7 @@ function _collectBrochureState() {
     products_per_page: document.querySelector('input[name="brochure-ppp"]:checked')?.value || '1',
     proyecto:        document.getElementById('brochure-proyecto')?.value.trim() || '',
     product_ids:     getSelectedIds('brochure'),
+    _ms_products:    [..._msMap('brochure').values()],
     collections:     _brochureCollections.map(col => ({ title: col.title, showPrices: col.showPrices, products: col.products.map(p => ({ title: p.title, image: p.image, price: p.price })) })),
     contexto_images: Object.fromEntries(['quienes','rescate','servicios','regalos','porque','europa','proceso','contacto'].map(s => [s, document.getElementById(\`ctx-\${s}-url\`)?.value || '']).filter(([,v]) => v)),
     pages: [
@@ -2415,9 +2417,9 @@ function _collectBrochureState() {
 function _collectCatalogState() {
   return {
     title:          document.getElementById('catalog-title')?.value.trim() || '',
-    show_prices:    document.getElementById('catalog-show-prices')?.checked || false,
+    show_prices:    document.getElementById('catalog-prices')?.checked || false,
     show_estado:    document.getElementById('catalog-show-estado')?.checked || false,
-    show_quienes:   document.getElementById('catalog-show-quienes')?.checked || false,
+    show_quienes:   document.getElementById('catalog-quienes-somos')?.checked || false,
     responsable:    document.getElementById('catalog-responsable')?.value.trim() || '',
     cargo:          document.getElementById('catalog-cargo')?.value.trim() || '',
     correo:         document.getElementById('catalog-correo')?.value.trim() || '',
@@ -2425,18 +2427,19 @@ function _collectCatalogState() {
     meta_fields:    ['origen','estilo','epocas','materiales','medidas'].filter(f => document.getElementById('catalog-mf-' + f)?.checked),
     bg_image:       document.getElementById('catalog-bg-url')?.value || '',
     product_ids:    getSelectedIds('catalog'),
+    _ms_products:   [..._msMap('catalog').values()],
   };
 }
 
 function _collectQuoteState() {
   return {
-    client_name:      document.getElementById('quote-client-name')?.value.trim() || '',
-    client_email:     document.getElementById('quote-client-email')?.value.trim() || '',
-    client_rut:       document.getElementById('quote-client-rut')?.value.trim() || '',
-    client_company:   document.getElementById('quote-client-company')?.value.trim() || '',
-    client_razon:     document.getElementById('quote-client-razon')?.value.trim() || '',
-    client_direccion: document.getElementById('quote-client-direccion')?.value.trim() || '',
-    valid_days:       document.getElementById('quote-valid-days')?.value.trim() || '',
+    client_name:      document.getElementById('quote-name')?.value.trim() || '',
+    client_email:     document.getElementById('quote-email')?.value.trim() || '',
+    client_rut:       document.getElementById('quote-rut')?.value.trim() || '',
+    client_company:   document.getElementById('quote-company')?.value.trim() || '',
+    client_razon:     document.getElementById('quote-razon-social')?.value.trim() || '',
+    client_direccion: document.getElementById('quote-direccion')?.value.trim() || '',
+    valid_days:       document.getElementById('quote-days')?.value.trim() || '',
     notes:            document.getElementById('quote-notes')?.value.trim() || '',
     products_per_page: document.getElementById('quote-ppp')?.value || '3',
     show_links:       document.getElementById('quote-show-links')?.checked || false,
@@ -2488,11 +2491,13 @@ function _restoreBrochureState(data) {
   const ppp = data.products_per_page || '1';
   const pppEl = document.querySelector(\`input[name="brochure-ppp"][value="\${ppp}"]\`);
   if (pppEl) pppEl.checked = true;
-  if (Array.isArray(data.product_ids) && data.product_ids.length) {
+  const msItems = Array.isArray(data._ms_products) && data._ms_products.length ? data._ms_products
+    : (Array.isArray(data.product_ids) && data.product_ids.length ? data.product_ids.map(id => ({ id })) : null);
+  if (msItems) {
     const map = _msMap('brochure');
     map.clear();
-    data.product_ids.forEach(id => map.set(id, { id }));
-    renderBasket('brochure');
+    msItems.forEach(p => map.set(String(p.id), p));
+    _msRenderBasket('brochure');
   }
 }
 
@@ -2501,20 +2506,22 @@ function _restoreCatalogState(data) {
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
   const chk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = val; };
   set('catalog-title', data.title || '');
-  chk('catalog-show-prices', !!data.show_prices);
+  chk('catalog-prices', !!data.show_prices);
   chk('catalog-show-estado', !!data.show_estado);
-  chk('catalog-show-quienes', !!data.show_quienes);
+  chk('catalog-quienes-somos', !!data.show_quienes);
   set('catalog-responsable', data.responsable || '');
   set('catalog-cargo', data.cargo || '');
   set('catalog-correo', data.correo || '');
   set('catalog-telefono', data.telefono || '');
   ['origen','estilo','epocas','materiales','medidas'].forEach(f => chk('catalog-mf-' + f, (data.meta_fields || []).includes(f)));
   set('catalog-bg-url', data.bg_image || '');
-  if (Array.isArray(data.product_ids) && data.product_ids.length) {
+  const msItems = Array.isArray(data._ms_products) && data._ms_products.length ? data._ms_products
+    : (Array.isArray(data.product_ids) && data.product_ids.length ? data.product_ids.map(id => ({ id })) : null);
+  if (msItems) {
     const map = _msMap('catalog');
     map.clear();
-    data.product_ids.forEach(id => map.set(id, { id }));
-    renderBasket('catalog');
+    msItems.forEach(p => map.set(String(p.id), p));
+    _msRenderBasket('catalog');
   }
 }
 
@@ -2522,23 +2529,17 @@ function _restoreQuoteState(data) {
   if (!data) return;
   const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
   const chk = (id, val) => { const el = document.getElementById(id); if (el) el.checked = val; };
-  set('quote-client-name', data.client_name || '');
-  set('quote-client-email', data.client_email || '');
-  set('quote-client-rut', data.client_rut || '');
-  set('quote-client-company', data.client_company || '');
-  set('quote-client-razon', data.client_razon || '');
-  set('quote-client-direccion', data.client_direccion || '');
-  set('quote-valid-days', data.valid_days || '');
+  set('quote-name', data.client_name || '');
+  set('quote-email', data.client_email || '');
+  set('quote-rut', data.client_rut || '');
+  set('quote-company', data.client_company || '');
+  set('quote-razon-social', data.client_razon || '');
+  set('quote-direccion', data.client_direccion || '');
+  set('quote-days', data.valid_days || '');
   set('quote-notes', data.notes || '');
   chk('quote-show-links', !!data.show_links);
   chk('quote-show-desc', data.show_description !== false);
   chk('quote-show-sku', !!data.show_sku);
-  if (Array.isArray(data.product_ids) && data.product_ids.length) {
-    const map = _msMap('quote');
-    map.clear();
-    data.product_ids.forEach(id => map.set(id, { id }));
-    renderBasket('quote');
-  }
 }
 
 const _projectCollectors = { brochure: _collectBrochureState, catalog: _collectCatalogState, quote: _collectQuoteState };
