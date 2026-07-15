@@ -18,12 +18,18 @@ function brochureHTML(products, options = {}) {
     showMetaFields = null,    // null = todos; array de keys = filtrar
     texturaImage = '',
     contextoImage = '',       // backward compat — se usa como fallback si no hay ctx por sección
-    contextoImages = {},       // { quienes, servicios, porque, europa, proceso, contacto }
+    contextoImages = {},       // { quienes, rescate, servicios, regalos, porque, europa, proceso, contacto }
     staticImages = {},
     proyecto = '',
     productsPerPage = 1,
     collections = [],
+    coverTag   = 'Propuesta Corporativa',
+    coverTitle = 'Soluciones Corporativas en Arte & Antigüedades',
+    coverSub   = 'Mobiliario, decoración exclusiva y regalos corporativos para empresas que buscan diferenciarse.',
+    pages = null,  // null = todas; array de keys = solo esas páginas
   } = options;
+
+  const showPage = key => !pages || pages.includes(key);
 
   const allMeta = !Array.isArray(showMetaFields);
   const showMf  = key => allMeta || showMetaFields.includes(key);
@@ -34,7 +40,9 @@ function brochureHTML(products, options = {}) {
 
   const CTX = {
     quienes:   contextoImages.quienes   || FALLBACK,
+    rescate:   contextoImages.rescate   || FALLBACK,
     servicios: contextoImages.servicios || FALLBACK,
+    regalos:   contextoImages.regalos   || FALLBACK,
     porque:    contextoImages.porque    || FALLBACK,
     europa:    contextoImages.europa    || FALLBACK,
     proceso:   contextoImages.proceso   || FALLBACK,
@@ -198,6 +206,21 @@ function brochureHTML(products, options = {}) {
     .s-stat-num { font-size: 26px; font-weight: 300; color: #1a1a1a; display: block; line-height: 1; }
     .s-stat-label { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #9a7f5a; margin-top: 4px; display: block; }
 
+    /* ── RESCATE PATRIMONIAL ── */
+    .rescate { min-height: 100vh; display: flex; background: #f5f3f0; }
+    .rescate-img { width: 44%; flex-shrink: 0; background-size: cover; background-position: center; }
+    .rescate-text { flex: 1; padding: 56px 72px 56px 60px; display: flex; flex-direction: column; justify-content: center; gap: 18px; }
+
+    /* ── REGALOS CORPORATIVOS ── */
+    .regalos { min-height: 100vh; display: flex; flex-direction: row; align-items: stretch; }
+    .regalos-content { flex: 1; background: #1a1a1a; color: #fff; padding: 52px 68px; display: flex; flex-direction: column; justify-content: center; gap: 28px; }
+    .regalos-title { font-size: 26px; font-weight: 300; color: #fff; line-height: 1.25; max-width: 480px; }
+    .regalos-body { font-size: 12px; color: rgba(255,255,255,0.44); line-height: 1.95; max-width: 520px; }
+    .regalos-body p + p { margin-top: 14px; }
+    .regalos-list { display: flex; flex-direction: column; gap: 0; border-top: 1px solid rgba(154,127,90,0.25); padding-top: 20px; margin-top: 4px; }
+    .regalos-list-item { display: flex; align-items: flex-start; gap: 14px; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 11px; color: rgba(255,255,255,0.5); line-height: 1.5; }
+    .regalos-list-item::before { content: '—'; color: #9a7f5a; flex-shrink: 0; }
+
     /* ── SERVICIOS ── */
     .servicios { min-height: 100vh; display: flex; flex-direction: row; align-items: stretch; }
     .servicios-content { flex: 1; background: #1a1a1a; color: #fff; padding: 52px 60px; display: flex; flex-direction: column; justify-content: center; gap: 36px; }
@@ -315,9 +338,9 @@ function brochureHTML(products, options = {}) {
     <div class="cover-text-half">
       <img src="${LOGO}" alt="Bucarest Art &amp; Antiques" class="cover-logo">
       <div class="cover-line"></div>
-      <div class="cover-tag">Propuesta Corporativa</div>
-      <div class="cover-title">Soluciones Corporativas<br>en Arte &amp; Antigüedades</div>
-      <div class="cover-sub">Mobiliario, decoración exclusiva y regalos corporativos para empresas que buscan diferenciarse.</div>
+      <div class="cover-tag">${coverTag}</div>
+      <div class="cover-title">${coverTitle.replace(/\n/g, '<br>')}</div>
+      <div class="cover-sub">${coverSub}</div>
       ${companyName ? `
       <div class="cover-company">
         Propuesta para<br>
@@ -329,6 +352,7 @@ function brochureHTML(products, options = {}) {
   ${proyectoPage}
 
   <!-- QUIÉNES SOMOS -->
+  ${showPage('quienes') ? `
   <div class="quienes page">
     ${CTX.quienes ? `<div class="quienes-img" style="background-image:url('${CTX.quienes}')"></div>` : ''}
     <div class="quienes-text">
@@ -345,56 +369,96 @@ function brochureHTML(products, options = {}) {
         <div><span class="s-stat-num">16</span><span class="s-stat-label">años importando desde Francia</span></div>
       </div>
     </div>
-  </div>
+  </div>` : ''}
+
+  <!-- RESCATE PATRIMONIAL -->
+  ${showPage('rescate') ? `
+  <div class="rescate page">
+    ${CTX.rescate ? `<div class="rescate-img" style="background-image:url('${CTX.rescate}')"></div>` : ''}
+    <div class="rescate-text">
+      <div class="s-tag">Rescate patrimonial</div>
+      <div class="s-title">Preservando la pintura chilena para las generaciones que vienen</div>
+      <div class="s-line"></div>
+      <div class="s-body">
+        <p>Chile posee una tradición pictórica extraordinaria que comienza en el siglo XIX con los maestros que regresaron de Europa imbuidos del academicismo de su época. Obras de Monvoisin, Onofre Jarpa, Valenzuela Puelma, Pedro Lira, Juan Francisco González, Camilo Mori y decenas de pintores nacionales representan un legado visual de nuestra historia colectiva que merece ser preservado y valorado.</p>
+        <p>Bucarest Art se ha comprometido con la búsqueda, restauración y difusión de estas piezas: adquiriendo obras que han permanecido en manos privadas por décadas, restaurándolas con criterio técnico y poniéndolas nuevamente en circulación para que puedan ser apreciadas, coleccionadas y conservadas.</p>
+        <p>Al adquirir una pintura chilena del siglo XIX o XX en Bucarest Art, no solo decora un espacio: contribuye activamente al rescate y valorización del patrimonio cultural de nuestro país.</p>
+      </div>
+    </div>
+  </div>` : ''}
 
   <!-- SERVICIOS PARA EMPRESAS -->
+  ${showPage('servicios') ? `
   <div class="servicios page">
     ${sideImg(CTX.servicios, { overlay: 'rgba(15,10,8,0.52)' })}
     <div class="servicios-content">
       <div class="svc-header">
-        <div class="s-tag">Servicios para empresas</div>
-        <div class="svc-title">Decora con Historia. Impresiona con Distinción.</div>
-        <div class="svc-intro">En Bucarest Art &amp; Antiques entendemos que los espacios corporativos comunican valores antes de que se pronuncie una sola palabra. Por eso, ofrecemos a empresas e instituciones una selección incomparable de antigüedades francesas, pinturas chilenas, alfombras persas y objetos de época — piezas únicas capaces de transformar una sala de directorio, un salón de recepciones o un espacio institucional en un entorno de verdadero prestigio.</div>
+        <div class="s-tag">Servicios para empresas e instituciones</div>
+        <div class="svc-title">Arte y Antigüedades para sus Espacios.</div>
+        <div class="svc-intro">Los espacios en los que trabajamos, recibimos y nos reunimos dicen mucho sobre quiénes somos y lo que valoramos. En Bucarest Art &amp; Antiques ayudamos a empresas, instituciones públicas, hoteles, embajadas y organismos a transformar sus entornos con piezas únicas de arte y antigüedad — objetos capaces de conferir distinción, historia e identidad a cualquier espacio corporativo o institucional.</div>
       </div>
       <div class="svc-grid">
         <div class="svc-block">
           <span class="svc-num">01</span>
-          <div class="svc-name">Decoración y mobiliario</div>
+          <div class="svc-name">Decoración de espacios</div>
           <ul class="svc-list">
-            <li>Mobiliario europeo (escritorios, cajoneras, sillones)</li>
-            <li>Pintura (marinas, paisajes, retratos)</li>
-            <li>Esculturas (bronces, mármoles)</li>
-            <li>Alfombras persas</li>
-            <li>Objetos decorativos de época</li>
+            <li>Salas de directorio y oficinas ejecutivas</li>
+            <li>Recepciones y lobbies corporativos</li>
+            <li>Hoteles y restaurantes premium</li>
+            <li>Embajadas y organismos diplomáticos</li>
+            <li>Universidades y centros culturales</li>
           </ul>
         </div>
         <div class="svc-block">
           <span class="svc-num">02</span>
-          <div class="svc-name">Proyectos corporativos</div>
+          <div class="svc-name">Proyectos institucionales</div>
           <ul class="svc-list">
-            <li>Oficinas ejecutivas</li>
-            <li>Salas de directorio</li>
-            <li>Recepciones y lobbies</li>
-            <li>Hoteles y restaurantes premium</li>
-            <li>Embajadas y organismos públicos</li>
+            <li>Asesoría de selección y curaduría</li>
+            <li>Propuestas adaptadas al espacio</li>
+            <li>Coordinación de entrega e instalación</li>
+            <li>Documentación de cada pieza</li>
+            <li>Seguimiento post-proyecto</li>
           </ul>
         </div>
         <div class="svc-block">
           <span class="svc-num">03</span>
-          <div class="svc-name">Regalos corporativos premium</div>
+          <div class="svc-name">Tipos de piezas</div>
           <ul class="svc-list">
-            <li>Reconocimientos a ejecutivos</li>
-            <li>Obsequios para clientes VIP</li>
-            <li>Celebraciones institucionales</li>
-            <li>Aniversarios empresariales</li>
-            <li>Hitos y eventos especiales</li>
+            <li>Pintura chilena siglos XIX–XX</li>
+            <li>Mobiliario europeo de época</li>
+            <li>Esculturas (bronces y mármoles)</li>
+            <li>Alfombras persas</li>
+            <li>Antigüedades y objetos de colección</li>
           </ul>
         </div>
       </div>
     </div>
-  </div>
+  </div>` : ''}
+
+  <!-- REGALOS CORPORATIVOS -->
+  ${showPage('regalos') ? `
+  <div class="regalos page">
+    <div class="regalos-content">
+      <div class="s-tag">Regalo corporativo premium</div>
+      <div class="regalos-title">El regalo más original que su organización puede entregar</div>
+      <div class="s-line"></div>
+      <div class="regalos-body">
+        <p>Cuando un regalo debe estar a la altura de quien lo recibe, las piezas de Bucarest Art &amp; Antiques hablan por sí solas. Ofrecemos una curaduría exclusiva de obsequios premium para empresas, instituciones públicas, organismos gubernamentales y entidades educacionales que valoran el detalle, la rareza y la permanencia.</p>
+        <p>Desde una obra de arte chilena del siglo XIX hasta un objeto de colección francés, cada pieza es en sí misma una historia — y el regalo más original que su organización puede entregar. Asesoramos en la selección, embalaje y presentación de cada obsequio, con discreción y criterio curatorial.</p>
+      </div>
+      <div class="regalos-list">
+        <div class="regalos-list-item">Reconocimientos a ejecutivos y altos directivos</div>
+        <div class="regalos-list-item">Obsequios para clientes y socios VIP</div>
+        <div class="regalos-list-item">Celebraciones institucionales y aniversarios empresariales</div>
+        <div class="regalos-list-item">Hitos universitarios, gubernamentales o diplomáticos</div>
+        <div class="regalos-list-item">Regalos de Estado y protocolo oficial</div>
+      </div>
+    </div>
+    ${sideImg(CTX.regalos, { width: '38%', overlay: 'rgba(15,10,8,0.45)' })}
+  </div>` : ''}
 
   <!-- POR QUÉ ELEGIRNOS -->
+  ${showPage('porque') ? `
   <div class="porque page">
     <div class="porque-content">
       <div>
@@ -425,9 +489,10 @@ function brochureHTML(products, options = {}) {
       </div>
     </div>
     ${sideImg(CTX.porque, { overlay: 'rgba(245,243,240,0.18)' })}
-  </div>
+  </div>` : ''}
 
   <!-- IMPORTACIÓN DESDE EUROPA -->
+  ${showPage('europa') ? `
   <div class="europa page">
     ${sideImg(CTX.europa, { width: '42%', overlay: 'rgba(15,10,8,0.48)' })}
     <div class="europa-content">
@@ -439,7 +504,7 @@ function brochureHTML(products, options = {}) {
         <div class="europa-sub">Durante más de 16 años, Ricardo Pizarro y su equipo han viajado periódicamente a Francia para adquirir piezas en las grandes casas de remate: Drouot, Millon &amp; Associes y Thierry de Maigret. Cada viaje es una búsqueda entre bodegas y mercados de anticuarios, para traer a Chile aquellos objetos únicos que deleitarán los espacios de sus clientes. Este atributo es imposible de replicar y nos posiciona muy por encima de cualquier tienda de decoración tradicional.</div>
       </div>
     </div>
-  </div>
+  </div>` : ''}
 
   <!-- PIEZAS SELECCIONADAS -->
   ${productPages}
@@ -448,6 +513,7 @@ function brochureHTML(products, options = {}) {
   ${collectionPages}
 
   <!-- PROCESO DE TRABAJO -->
+  ${showPage('proceso') ? `
   <div class="proceso page">
     <div class="proceso-content">
       <div>
@@ -493,7 +559,7 @@ function brochureHTML(products, options = {}) {
       </div>
     </div>
     ${sideImg(CTX.proceso, { overlay: 'rgba(245,243,240,0.18)' })}
-  </div>
+  </div>` : ''}
 
   <!-- CONTACTO -->
   <div class="contacto page">

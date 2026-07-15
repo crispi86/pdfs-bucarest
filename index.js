@@ -717,7 +717,7 @@ app.post('/generate/brochure', async (req, res) => {
       company_name, responsable, cargo, correo, telefono,
       show_prices, textura_url, contexto_images = {}, product_ids = [],
       proyecto, products_per_page, collections = [], meta_fields,
-      cover_tag, cover_title, cover_sub,
+      cover_tag, cover_title, cover_sub, pages,
     } = req.body;
 
     let products = [];
@@ -730,7 +730,7 @@ app.post('/generate/brochure', async (req, res) => {
       products = await embedProductImages(withMeta, 900);
     }
 
-    const CTX_SECTIONS = ['quienes','servicios','porque','europa','proceso','contacto'];
+    const CTX_SECTIONS = ['quienes','rescate','servicios','regalos','porque','europa','proceso','contacto'];
     const [texturaData, ...ctxDataArr] = await Promise.all([
       textura_url ? fetchBase64(textura_url, 1400) : Promise.resolve(''),
       ...CTX_SECTIONS.map(k => contexto_images[k] ? fetchBase64(contexto_images[k], 1400) : Promise.resolve('')),
@@ -762,6 +762,7 @@ app.post('/generate/brochure', async (req, res) => {
       ...(cover_tag   && { coverTag:   cover_tag   }),
       ...(cover_title && { coverTitle: cover_title }),
       ...(cover_sub   && { coverSub:   cover_sub   }),
+      ...(Array.isArray(pages) && pages.length ? { pages } : {}),
     });
 
     const pdf = await generatePDF(html, { landscape: true });
@@ -1379,13 +1380,33 @@ function adminUI(host) {
     </div>
 
     <div class="card">
+      <span class="section-label">Páginas del brochure</span>
+      <p style="font-size:12px;color:#999;margin-bottom:16px">Selecciona qué secciones incluir. Portada, piezas seleccionadas y contacto siempre se incluyen.</p>
+      ${[
+        ['brochure-page-quienes',   'quienes',   'Quiénes somos'],
+        ['brochure-page-rescate',   'rescate',   'Rescate patrimonial'],
+        ['brochure-page-servicios', 'servicios', 'Servicios para empresas e instituciones'],
+        ['brochure-page-regalos',   'regalos',   'Regalos corporativos'],
+        ['brochure-page-porque',    'porque',    'Por qué elegirnos'],
+        ['brochure-page-europa',    'europa',    'Selección e importación directa'],
+        ['brochure-page-proceso',   'proceso',   'Proceso de trabajo'],
+      ].map(([id, , label]) => `
+      <div class="checkbox-row">
+        <input type="checkbox" id="${id}" checked>
+        <label for="${id}" style="text-transform:none;letter-spacing:0;font-size:13px">${label}</label>
+      </div>`).join('')}
+    </div>
+
+    <div class="card">
       <span class="section-label">Imágenes de contexto por sección</span>
       <p style="font-size:12px;color:#999;margin-bottom:20px">Elige una imagen distinta para cada sección del brochure. Se cargan desde los archivos de Shopify nombrados "contexto".</p>
       ${[
         ['quienes',   'Quiénes somos'],
-        ['servicios', 'Servicios para empresas'],
+        ['rescate',   'Rescate patrimonial'],
+        ['servicios', 'Servicios para empresas e instituciones'],
+        ['regalos',   'Regalos corporativos'],
         ['porque',    'Por qué elegirnos'],
-        ['europa',    'Importación desde Europa'],
+        ['europa',    'Selección e importación directa'],
         ['proceso',   'Proceso de trabajo'],
         ['contacto',  'Contacto (última página)'],
       ].map(([sec, label]) => `
@@ -2156,7 +2177,7 @@ async function loadBrochurePickers() {
   }
 
   // Imágenes de contexto — una por sección
-  const CTX_SECTIONS = ['quienes','servicios','porque','europa','proceso','contacto'];
+  const CTX_SECTIONS = ['quienes','rescate','servicios','regalos','porque','europa','proceso','contacto'];
   try {
     const res = await fetch('/api/contextos');
     const images = await res.json();
@@ -2274,10 +2295,19 @@ async function generateBrochure() {
       .filter(f => document.getElementById('brochure-mf-' + f)?.checked),
     textura_url:  document.getElementById('brochure-textura-url').value,
     contexto_images: Object.fromEntries(
-      ['quienes','servicios','porque','europa','proceso','contacto']
+      ['quienes','rescate','servicios','regalos','porque','europa','proceso','contacto']
         .map(s => [s, document.getElementById(\`ctx-\${s}-url\`)?.value || ''])
         .filter(([, v]) => v)
     ),
+    pages: [
+      ['brochure-page-quienes',   'quienes'],
+      ['brochure-page-rescate',   'rescate'],
+      ['brochure-page-servicios', 'servicios'],
+      ['brochure-page-regalos',   'regalos'],
+      ['brochure-page-porque',    'porque'],
+      ['brochure-page-europa',    'europa'],
+      ['brochure-page-proceso',   'proceso'],
+    ].filter(([id]) => document.getElementById(id)?.checked).map(([, key]) => key),
     product_ids:  ids,
     proyecto:     document.getElementById('brochure-proyecto').value.trim(),
     products_per_page: document.querySelector('input[name="brochure-ppp"]:checked')?.value || '1',
@@ -2369,7 +2399,16 @@ function _collectBrochureState() {
     proyecto:        document.getElementById('brochure-proyecto')?.value.trim() || '',
     product_ids:     getSelectedIds('brochure'),
     collections:     _brochureCollections.map(col => ({ title: col.title, showPrices: col.showPrices, products: col.products.map(p => ({ title: p.title, image: p.image, price: p.price })) })),
-    contexto_images: Object.fromEntries(['quienes','servicios','porque','europa','proceso','contacto'].map(s => [s, document.getElementById(\`ctx-\${s}-url\`)?.value || '']).filter(([,v]) => v)),
+    contexto_images: Object.fromEntries(['quienes','rescate','servicios','regalos','porque','europa','proceso','contacto'].map(s => [s, document.getElementById(\`ctx-\${s}-url\`)?.value || '']).filter(([,v]) => v)),
+    pages: [
+      ['brochure-page-quienes',   'quienes'],
+      ['brochure-page-rescate',   'rescate'],
+      ['brochure-page-servicios', 'servicios'],
+      ['brochure-page-regalos',   'regalos'],
+      ['brochure-page-porque',    'porque'],
+      ['brochure-page-europa',    'europa'],
+      ['brochure-page-proceso',   'proceso'],
+    ].filter(([id]) => document.getElementById(id)?.checked).map(([, key]) => key),
   };
 }
 
@@ -2428,6 +2467,24 @@ function _restoreBrochureState(data) {
     });
   }
   ['origen','estilo','epocas','materiales','medidas'].forEach(f => chk('brochure-mf-' + f, (data.meta_fields || []).includes(f)));
+  [
+    ['brochure-page-quienes',   'quienes'],
+    ['brochure-page-rescate',   'rescate'],
+    ['brochure-page-servicios', 'servicios'],
+    ['brochure-page-regalos',   'regalos'],
+    ['brochure-page-porque',    'porque'],
+    ['brochure-page-europa',    'europa'],
+    ['brochure-page-proceso',   'proceso'],
+  ].forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if (el && Array.isArray(data.pages)) el.checked = data.pages.includes(key);
+  });
+  if (data.contexto_images) {
+    ['quienes','rescate','servicios','regalos','porque','europa','proceso','contacto'].forEach(s => {
+      const el = document.getElementById(\`ctx-\${s}-url\`);
+      if (el) el.value = data.contexto_images[s] || '';
+    });
+  }
   const ppp = data.products_per_page || '1';
   const pppEl = document.querySelector(\`input[name="brochure-ppp"][value="\${ppp}"]\`);
   if (pppEl) pppEl.checked = true;
