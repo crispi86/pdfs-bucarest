@@ -380,7 +380,7 @@ function brochureHTML(products, options = {}) {
       <div class="s-title">Preservando la pintura chilena para las generaciones que vienen</div>
       <div class="s-line"></div>
       <div class="s-body">
-        <p>Chile posee una tradición pictórica extraordinaria que comienza en el siglo XIX con los maestros que regresaron de Europa imbuidos del academicismo de su época. Obras de Monvoisin, Onofre Jarpa, Valenzuela Puelma, Pedro Lira, Juan Francisco González, Camilo Mori y decenas de pintores nacionales representan un legado visual de nuestra historia colectiva que merece ser preservado y valorado.</p>
+        <p>Chile posee una tradición pictórica extraordinaria que comienza en el siglo XIX con los maestros que regresaron de Europa imbuidos del academicismo de su época. Obras de los más destacados pintores nacionales representan un legado visual de nuestra historia colectiva que merece ser preservado y valorado.</p>
         <p>Bucarest Art se ha comprometido con la búsqueda, restauración y difusión de estas piezas: adquiriendo obras que han permanecido en manos privadas por décadas, restaurándolas con criterio técnico y poniéndolas nuevamente en circulación para que puedan ser apreciadas, coleccionadas y conservadas.</p>
         <p>Al adquirir una pintura chilena del siglo XIX o XX en Bucarest Art, no solo decora un espacio: contribuye activamente al rescate y valorización del patrimonio cultural de nuestro país.</p>
       </div>
