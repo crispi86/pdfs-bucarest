@@ -4,6 +4,7 @@ const SHOP = process.env.SHOPIFY_SHOP;
 
 function shopifyRequest(method, path, body = null) {
   const token = process.env.SHOPIFY_ACCESS_TOKEN;
+  const bodyStr = body ? JSON.stringify(body) : null;
   return new Promise((resolve, reject) => {
     const options = {
       hostname: SHOP,
@@ -12,18 +13,33 @@ function shopifyRequest(method, path, body = null) {
       headers: {
         'X-Shopify-Access-Token': token,
         'Content-Type': 'application/json',
+        ...(bodyStr ? { 'Content-Length': Buffer.byteLength(bodyStr) } : {}),
       },
     };
     const req = https.request(options, (res) => {
       let data = '';
       res.on('data', (chunk) => (data += chunk));
       res.on('end', () => {
-        try { resolve({ body: JSON.parse(data), headers: res.headers }); }
-        catch (e) { reject(e); }
+        const status = res.statusCode;
+        if (!data.trim()) {
+          if (status >= 200 && status < 300) return resolve({ body: {}, headers: res.headers });
+          return reject(new Error(`Shopify HTTP ${status} — respuesta vacía`));
+        }
+        let parsed;
+        try { parsed = JSON.parse(data); } catch (e) {
+          return reject(new Error(`Shopify HTTP ${status} — respuesta no-JSON: ${data.slice(0, 200)}`));
+        }
+        if (status >= 400) {
+          const detail = parsed.errors
+            ? JSON.stringify(parsed.errors).slice(0, 300)
+            : (parsed.error || `HTTP ${status}`);
+          return reject(new Error(`Shopify ${status}: ${detail}`));
+        }
+        resolve({ body: parsed, headers: res.headers });
       });
     });
     req.on('error', reject);
-    if (body) req.write(JSON.stringify(body));
+    if (bodyStr) req.write(bodyStr);
     req.end();
   });
 }
@@ -347,13 +363,20 @@ async function saveProject(type, project) {
   if (idx >= 0) projects[idx] = project;
   else projects.push(project);
 
+  const valueStr = JSON.stringify(projects);
+  const byteSize = Buffer.byteLength(valueStr, 'utf8');
+  console.log(`[saveProject] ${type} → ${projects.length} proyecto(s), ${byteSize} bytes`);
+  if (byteSize > 65000) {
+    throw new Error(`Los proyectos guardados superan el límite de Shopify (${byteSize} bytes). Elimina proyectos antiguos antes de guardar.`);
+  }
+
   if (existing) {
     await shopifyRequest('PUT', `metafields/${existing.id}.json`, {
-      metafield: { id: existing.id, value: JSON.stringify(projects), type: 'json' },
+      metafield: { id: existing.id, value: valueStr, type: 'json' },
     });
   } else {
     await shopifyRequest('POST', 'shop/metafields.json', {
-      metafield: { namespace: 'bucarest', key, value: JSON.stringify(projects), type: 'json' },
+      metafield: { namespace: 'bucarest', key, value: valueStr, type: 'json' },
     });
   }
   return projects;
