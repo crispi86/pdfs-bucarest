@@ -344,11 +344,17 @@ function _parseProjectValue(value) {
   return [];
 }
 
+async function _findProjectMetafield(key) {
+  const { body } = await shopifyRequest('GET', 'shop/metafields.json?namespace=bucarest');
+  const all = body.metafields || [];
+  console.log(`[_findProjectMetafield] ${all.length} metafield(s) en namespace bucarest`);
+  return all.find(m => m.key === key) || null;
+}
+
 async function getProjects(type) {
   if (!VALID_PROJECT_TYPES.has(type)) throw new Error(`Tipo inválido: ${type}`);
   const key = `${type}_projects`;
-  const { body } = await shopifyRequest('GET', `shop/metafields.json?namespace=bucarest&key=${key}`);
-  const existing = (body.metafields || [])[0];
+  const existing = await _findProjectMetafield(key);
   if (!existing) return [];
   return _parseProjectValue(existing.value);
 }
@@ -356,8 +362,7 @@ async function getProjects(type) {
 async function saveProject(type, project) {
   if (!VALID_PROJECT_TYPES.has(type)) throw new Error(`Tipo inválido: ${type}`);
   const key = `${type}_projects`;
-  const { body } = await shopifyRequest('GET', `shop/metafields.json?namespace=bucarest&key=${key}`);
-  const existing = (body.metafields || [])[0];
+  const existing = await _findProjectMetafield(key);
   let projects = existing ? _parseProjectValue(existing.value) : [];
   const idx = projects.findIndex(p => p.id === project.id);
   if (idx >= 0) projects[idx] = project;
@@ -392,8 +397,7 @@ async function saveProject(type, project) {
 async function deleteProject(type, projectId) {
   if (!VALID_PROJECT_TYPES.has(type)) throw new Error(`Tipo inválido: ${type}`);
   const key = `${type}_projects`;
-  const { body } = await shopifyRequest('GET', `shop/metafields.json?namespace=bucarest&key=${key}`);
-  const existing = (body.metafields || [])[0];
+  const existing = await _findProjectMetafield(key);
   if (!existing) return [];
   let projects = _parseProjectValue(existing.value);
   projects = projects.filter(p => p.id !== projectId);
