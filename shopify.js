@@ -371,9 +371,16 @@ async function saveProject(type, project) {
   }
 
   if (existing) {
-    await shopifyRequest('PUT', `metafields/${existing.id}.json`, {
-      metafield: { id: existing.id, value: valueStr, type: 'json' },
-    });
+    try {
+      await shopifyRequest('PUT', `metafields/${existing.id}.json`, {
+        metafield: { id: existing.id, value: valueStr },
+      });
+    } catch (putErr) {
+      console.log(`[saveProject] PUT falló (${putErr.message}), recreando metafield`);
+      await shopifyRequest('POST', 'shop/metafields.json', {
+        metafield: { namespace: 'bucarest', key, value: valueStr, type: 'json' },
+      });
+    }
   } else {
     await shopifyRequest('POST', 'shop/metafields.json', {
       metafield: { namespace: 'bucarest', key, value: valueStr, type: 'json' },
@@ -390,9 +397,17 @@ async function deleteProject(type, projectId) {
   if (!existing) return [];
   let projects = _parseProjectValue(existing.value);
   projects = projects.filter(p => p.id !== projectId);
-  await shopifyRequest('PUT', `metafields/${existing.id}.json`, {
-    metafield: { id: existing.id, value: JSON.stringify(projects), type: 'json' },
-  });
+  const valueStr = JSON.stringify(projects);
+  try {
+    await shopifyRequest('PUT', `metafields/${existing.id}.json`, {
+      metafield: { id: existing.id, value: valueStr },
+    });
+  } catch (putErr) {
+    console.log(`[deleteProject] PUT falló (${putErr.message}), recreando metafield`);
+    await shopifyRequest('POST', 'shop/metafields.json', {
+      metafield: { namespace: 'bucarest', key, value: valueStr, type: 'json' },
+    });
+  }
   return projects;
 }
 
