@@ -44,9 +44,9 @@ function shopifyRequest(method, path, body = null) {
   });
 }
 
-function graphqlRequest(query) {
+function graphqlRequest(query, variables = null) {
   const token = process.env.SHOPIFY_ACCESS_TOKEN;
-  const bodyStr = JSON.stringify({ query });
+  const bodyStr = JSON.stringify(variables ? { query, variables } : { query });
   return new Promise((resolve, reject) => {
     const options = {
       hostname: process.env.SHOPIFY_SHOP,
@@ -331,7 +331,7 @@ async function getNextCertFolio() {
   return getNextFolio('cert');
 }
 
-// ── Proyectos guardados (Shopify metafields, namespace=bucarest) ──────────────
+// ── Proyectos guardados — GraphQL (más robusto que REST para shop metafields) ──
 
 const VALID_PROJECT_TYPES = new Set(['brochure', 'catalog', 'quote']);
 
@@ -344,74 +344,79 @@ function _parseProjectValue(value) {
   return [];
 }
 
-async function _findProjectMetafield(key) {
-  const { body } = await shopifyRequest('GET', 'shop/metafields.json?namespace=bucarest');
-  const all = body.metafields || [];
-  console.log(`[_findProjectMetafield] ${all.length} metafield(s) en namespace bucarest`);
-  return all.find(m => m.key === key) || null;
+let _cachedShopGid = null;
+async function _getShopGid() {
+  if (_cachedShopGid) return _cachedShopGid;
+  const res = await graphqlRequest('{ shop { id } }');
+  if (res.errors) throw new Error(`GraphQL shop.id: ${res.errors[0]?.message}`);
+  _cachedShopGid = res.data?.shop?.id;
+  if (!_cachedShopGid) throw new Error('No se pudo obtener el GID de la tienda Shopify');
+  console.log('[shopGid]', _cachedShopGid);
+  return _cachedShopGid;
+}
+
+async function _readProjectsGQL(key) {
+  const res = await graphqlRequest(`{
+    shop {
+      metafields(namespace: "bucarest", first: 30) {
+        edges { node { id key value } }
+      }
+    }
+  }`);
+  if (res.errors) throw new Error(`GraphQL metafields: ${res.errors[0]?.message}`);
+  const edges = res.data?.shop?.metafields?.edges || [];
+  console.log(`[_readProjectsGQL] ${edges.length} metafield(s) encontrados, buscando "${key}"`);
+  const found = edges.find(e => e.node.key === key);
+  return found ? _parseProjectValue(found.node.value) : [];
+}
+
+async function _upsertProjectsGQL(key, projects) {
+  const shopGid = await _getShopGid();
+  const valueStr = JSON.stringify(projects);
+  const byteSize = Buffer.byteLength(valueStr, 'utf8');
+  console.log(`[_upsertProjectsGQL] ${key} → ${projects.length} proyecto(s), ${byteSize} bytes`);
+  if (byteSize > 65000) {
+    throw new Error(`Los proyectos superan el límite de Shopify (${byteSize} bytes). Elimina proyectos antiguos.`);
+  }
+  const mutation = `
+    mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+      metafieldsSet(metafields: $metafields) {
+        metafields { id key }
+        userErrors { field message }
+      }
+    }
+  `;
+  const variables = {
+    metafields: [{ ownerId: shopGid, namespace: 'bucarest', key, value: valueStr, type: 'json' }],
+  };
+  const res = await graphqlRequest(mutation, variables);
+  if (res.errors) throw new Error(`GraphQL metafieldsSet: ${res.errors[0]?.message}`);
+  const userErrors = res.data?.metafieldsSet?.userErrors || [];
+  if (userErrors.length) throw new Error(`metafieldsSet error: ${userErrors[0]?.message}`);
+  console.log(`[_upsertProjectsGQL] OK: ${key}`);
 }
 
 async function getProjects(type) {
   if (!VALID_PROJECT_TYPES.has(type)) throw new Error(`Tipo inválido: ${type}`);
-  const key = `${type}_projects`;
-  const existing = await _findProjectMetafield(key);
-  if (!existing) return [];
-  return _parseProjectValue(existing.value);
+  return _readProjectsGQL(`${type}_projects`);
 }
 
 async function saveProject(type, project) {
   if (!VALID_PROJECT_TYPES.has(type)) throw new Error(`Tipo inválido: ${type}`);
   const key = `${type}_projects`;
-  const existing = await _findProjectMetafield(key);
-  let projects = existing ? _parseProjectValue(existing.value) : [];
+  const projects = await _readProjectsGQL(key);
   const idx = projects.findIndex(p => p.id === project.id);
   if (idx >= 0) projects[idx] = project;
   else projects.push(project);
-
-  const valueStr = JSON.stringify(projects);
-  const byteSize = Buffer.byteLength(valueStr, 'utf8');
-  console.log(`[saveProject] ${type} → ${projects.length} proyecto(s), ${byteSize} bytes`);
-  if (byteSize > 65000) {
-    throw new Error(`Los proyectos guardados superan el límite de Shopify (${byteSize} bytes). Elimina proyectos antiguos antes de guardar.`);
-  }
-
-  if (existing) {
-    try {
-      await shopifyRequest('PUT', `metafields/${existing.id}.json`, {
-        metafield: { id: existing.id, value: valueStr },
-      });
-    } catch (putErr) {
-      console.log(`[saveProject] PUT falló (${putErr.message}), recreando metafield`);
-      await shopifyRequest('POST', 'shop/metafields.json', {
-        metafield: { namespace: 'bucarest', key, value: valueStr, type: 'json' },
-      });
-    }
-  } else {
-    await shopifyRequest('POST', 'shop/metafields.json', {
-      metafield: { namespace: 'bucarest', key, value: valueStr, type: 'json' },
-    });
-  }
+  await _upsertProjectsGQL(key, projects);
   return projects;
 }
 
 async function deleteProject(type, projectId) {
   if (!VALID_PROJECT_TYPES.has(type)) throw new Error(`Tipo inválido: ${type}`);
   const key = `${type}_projects`;
-  const existing = await _findProjectMetafield(key);
-  if (!existing) return [];
-  let projects = _parseProjectValue(existing.value);
-  projects = projects.filter(p => p.id !== projectId);
-  const valueStr = JSON.stringify(projects);
-  try {
-    await shopifyRequest('PUT', `metafields/${existing.id}.json`, {
-      metafield: { id: existing.id, value: valueStr },
-    });
-  } catch (putErr) {
-    console.log(`[deleteProject] PUT falló (${putErr.message}), recreando metafield`);
-    await shopifyRequest('POST', 'shop/metafields.json', {
-      metafield: { namespace: 'bucarest', key, value: valueStr, type: 'json' },
-    });
-  }
+  const projects = (await _readProjectsGQL(key)).filter(p => p.id !== projectId);
+  await _upsertProjectsGQL(key, projects);
   return projects;
 }
 
