@@ -358,7 +358,7 @@ async function _getShopGid() {
 async function _readProjectsGQL(key) {
   const res = await graphqlRequest(`{
     shop {
-      metafields(namespace: "bucarest", first: 30) {
+      metafields(namespace: "bucarest", first: 50) {
         edges { node { id key value } }
       }
     }

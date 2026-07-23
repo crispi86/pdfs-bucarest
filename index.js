@@ -1673,7 +1673,7 @@ function renderProducts(prefix, products, filter) {
 
 // Selección persistente multi-búsqueda: Map(id → {id, title, price}) por prefix
 const _msSelection = {};
-const MS_PREFIXES = new Set(['catalog', 'brochure']);
+const MS_PREFIXES = new Set(['catalog', 'brochure', 'quote']);
 
 function _msMap(prefix) {
   if (!_msSelection[prefix]) _msSelection[prefix] = new Map();
@@ -1714,20 +1714,20 @@ function _msClear(prefix) {
 }
 
 function _msRenderBasket(prefix) {
-  const basket = document.getElementById(prefix + '-basket');
-  if (!basket) return;
   const map = _msMap(prefix);
   const countEl = document.getElementById(prefix + '-count');
-  if (!map.size) {
+  const n = map.size;
+  if (countEl) countEl.textContent = n > 0 ? (n + ' producto' + (n !== 1 ? 's' : '') + ' seleccionado' + (n !== 1 ? 's' : '')) : '';
+  const basket = document.getElementById(prefix + '-basket');
+  if (!basket) return;
+  if (!n) {
     basket.style.display = 'none';
-    if (countEl) countEl.textContent = '';
     const btn = document.getElementById(prefix + '-select-all');
     if (btn) btn.textContent = 'Seleccionar todos';
     return;
   }
   basket.style.display = 'block';
   const items = [...map.values()];
-  const n = items.length;
   basket.innerHTML =
     \`<div class="ms-basket-header">
       <span class="ms-basket-title">\${n} producto\${n !== 1 ? 's' : ''} seleccionado\${n !== 1 ? 's' : ''}</span>
@@ -1739,7 +1739,6 @@ function _msRenderBasket(prefix) {
         <button class="ms-basket-remove" onclick="_msDel('\${prefix}','\${p.id}')">✕</button>
       </div>\`;
     }).join('');
-  if (countEl) countEl.textContent = n + ' producto' + (n !== 1 ? 's' : '') + ' seleccionado' + (n !== 1 ? 's' : '');
 }
 
 function renderRows(prefix, filtered) {
@@ -2533,6 +2532,7 @@ function _collectQuoteState() {
     show_description: document.getElementById('quote-show-desc')?.checked !== false,
     show_sku:         document.getElementById('quote-show-sku')?.checked || false,
     product_ids:      getSelectedIds('quote'),
+    _ms_products:     [..._msMap('quote').values()],
   };
 }
 
@@ -2634,9 +2634,19 @@ function _restoreQuoteState(data) {
   set('quote-direccion', data.client_direccion || '');
   set('quote-days', data.valid_days || '');
   set('quote-notes', data.notes || '');
+  const pppEl = document.getElementById('quote-ppp');
+  if (pppEl) pppEl.value = String(data.products_per_page || '3');
   chk('quote-show-links', !!data.show_links);
   chk('quote-show-desc', data.show_description !== false);
   chk('quote-show-sku', !!data.show_sku);
+  const msItems = Array.isArray(data._ms_products) && data._ms_products.length ? data._ms_products
+    : (Array.isArray(data.product_ids) && data.product_ids.length ? data.product_ids.map(id => ({ id })) : null);
+  if (msItems) {
+    const map = _msMap('quote');
+    map.clear();
+    msItems.forEach(p => map.set(String(p.id), p));
+    _msRenderBasket('quote');
+  }
 }
 
 const _projectCollectors = { brochure: _collectBrochureState, catalog: _collectCatalogState, quote: _collectQuoteState };
@@ -2647,7 +2657,7 @@ async function saveProject(type) {
   const name = nameEl?.value.trim();
   if (!name) { alert('Escribe un nombre para el proyecto antes de guardar.'); return; }
   const data = (_projectCollectors[type] || (() => ({})))();
-  const id = \`\${type}-\${Date.now()}\`;
+  const id = nameEl?.dataset.loadedId || \`\${type}-\${Date.now()}\`;
   try {
     const res = await fetch(\`/api/projects/\${type}\`, {
       method: 'POST',
@@ -2695,14 +2705,25 @@ function applyProject(type, id) {
   const p = projects.find(x => x.id === id);
   if (!p) return;
   const nameEl = document.getElementById(\`\${type}-project-name\`);
-  if (nameEl) nameEl.value = p.name;
+  if (nameEl) {
+    nameEl.value = p.name;
+    nameEl.dataset.loadedId = p.id;
+    const onInput = () => { delete nameEl.dataset.loadedId; nameEl.removeEventListener('input', onInput); };
+    if (nameEl._loadedIdListener) nameEl.removeEventListener('input', nameEl._loadedIdListener);
+    nameEl._loadedIdListener = onInput;
+    nameEl.addEventListener('input', onInput);
+  }
   (_projectRestorers[type] || (() => {}))(p.data);
 }
 
 async function deleteProjectUI(type, id) {
   if (!confirm('¿Eliminar este proyecto?')) return;
   try {
-    await fetch(\`/api/projects/\${type}/\${id}\`, { method: 'DELETE' });
+    const res = await fetch(\`/api/projects/\${type}/\${id}\`, { method: 'DELETE' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || \`HTTP \${res.status}\`);
+    }
     await loadProjects(type);
   } catch(e) {
     alert('Error eliminando proyecto: ' + e.message);
