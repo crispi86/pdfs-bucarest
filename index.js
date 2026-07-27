@@ -478,6 +478,16 @@ const TEXTURES = [
   'https://cdn.shopify.com/s/files/1/0814/7671/4798/files/textura_madera.jpg?v=1761008010',
 ];
 
+// Limita llamadas a Shopify a una a la vez, con delay entre ítems (evita 429)
+async function throttledMap(items, fn, delayMs = 500) {
+  const results = [];
+  for (let i = 0; i < items.length; i++) {
+    results.push(await fn(items[i]));
+    if (i < items.length - 1) await new Promise(r => setTimeout(r, delayMs));
+  }
+  return results;
+}
+
 app.get('/api/textures', (req, res) => {
   res.json(TEXTURES.map(url => ({ url, alt: url.split('/').pop().split('?')[0].replace(/\.[^.]+$/, '').replace(/_/g, ' ') })));
 });
@@ -590,20 +600,21 @@ app.post('/generate/catalog', async (req, res) => {
     const { product_ids, title, show_prices, show_estado, show_quienes_somos, send_email, responsable, cargo, correo, telefono, bg_image, price_overrides, meta_fields } = req.body;
     const ids = Array.isArray(product_ids) ? product_ids : [product_ids];
 
-    const [folio, rawProducts, locations, bgImageData] = await Promise.all([
+    // Folio, locations y bg en paralelo (3-4 llamadas — dentro del límite)
+    const [folio, locations, bgImageData] = await Promise.all([
       shopify.getNextFolio('catalog'),
-      Promise.all(ids.map(async id => {
-        const p = await shopify.getProductById(id);
-        if (!p) return null;
-        p._metafields = await shopify.getProductMetafields(id);
-        if (price_overrides && price_overrides[id] && p.variants && p.variants[0]) {
-          p.variants[0].price = String(price_overrides[id]);
-        }
-        return p;
-      })),
       withCache('locations', 60 * 60 * 1000, () => shopify.getLocations()),
       bg_image ? fetchBase64(bg_image, 1200) : Promise.resolve(''),
     ]);
+
+    // Productos secuencialmente (2 calls cada uno: getProductById + getProductMetafields)
+    const rawProducts = await throttledMap(ids, async id => {
+      const p = await shopify.getProductById(id);
+      if (!p) return null;
+      p._metafields = await shopify.getProductMetafields(id);
+      if (price_overrides?.[id] && p.variants?.[0]) p.variants[0].price = String(price_overrides[id]);
+      return p;
+    }, 600);
 
     const products = await embedProductImages(rawProducts.filter(Boolean), 800);
 
@@ -644,14 +655,13 @@ app.post('/generate/quote', async (req, res) => {
     const { product_ids, client_name, client_email, client_rut, client_company, client_razon_social, client_direccion, valid_days, notes, send_email, price_overrides, products_per_page, show_links, show_description, show_sku } = req.body;
     const ids = Array.isArray(product_ids) ? product_ids : [product_ids];
 
-    const [folio, rawProducts] = await Promise.all([
-      shopify.getNextFolio('quote'),
-      Promise.all(ids.map(async id => {
-        const p = await shopify.getProductById(id);
-        if (price_overrides?.[id] && p.variants?.[0]) p.variants[0].price = String(price_overrides[id]);
-        return p;
-      })),
-    ]);
+    const folio = await shopify.getNextFolio('quote');
+    const rawProducts = await throttledMap(ids, async id => {
+      const p = await shopify.getProductById(id);
+      if (!p) return null;
+      if (price_overrides?.[id] && p.variants?.[0]) p.variants[0].price = String(price_overrides[id]);
+      return p;
+    }, 350);
     const products = await embedProductImages(rawProducts);
 
     const html = quoteHTML(products, {
@@ -725,26 +735,29 @@ app.post('/generate/brochure', async (req, res) => {
 
     let products = [];
     if (product_ids.length) {
-      const raw = await Promise.all(product_ids.map(id => shopify.getProductById(id)));
-      const withMeta = await Promise.all(raw.filter(Boolean).map(async p => {
+      const withMeta = await throttledMap(product_ids, async id => {
+        const p = await shopify.getProductById(id);
+        if (!p) return null;
         const meta = await shopify.getProductMetafields(p.id);
         return { ...p, _metafields: meta };
-      }));
-      products = await embedProductImages(withMeta, 900);
+      }, 600);
+      products = await embedProductImages(withMeta.filter(Boolean), 900);
     }
 
     const CTX_SECTIONS = ['quienes','rescate','servicios','regalos','porque','europa','proceso','contacto'];
+    // fetchBase64 va a CDN externo, no a Shopify API — paralelo está bien
     const [texturaData, ...ctxDataArr] = await Promise.all([
       textura_url ? fetchBase64(textura_url, 1400) : Promise.resolve(''),
       ...CTX_SECTIONS.map(k => contexto_images[k] ? fetchBase64(contexto_images[k], 1400) : Promise.resolve('')),
     ]);
     const contextoImages = Object.fromEntries(CTX_SECTIONS.map((k, i) => [k, ctxDataArr[i]]));
 
-    const collectionsEmbedded = await Promise.all((collections || []).map(async col => {
-      let products = col.products || [];
-      if (!products.length && Array.isArray(col.product_ids) && col.product_ids.length) {
-        const fetched = await Promise.all(col.product_ids.map(id => shopify.getProductById(id).catch(() => null)));
-        products = fetched.filter(Boolean).map(p => ({
+    // Colecciones: productos por collection_id vienen de Shopify API → throttle
+    const collectionsEmbedded = await throttledMap(collections || [], async col => {
+      let colProducts = col.products || [];
+      if (!colProducts.length && Array.isArray(col.product_ids) && col.product_ids.length) {
+        const fetched = await throttledMap(col.product_ids, id => shopify.getProductById(id).catch(() => null), 350);
+        colProducts = fetched.filter(Boolean).map(p => ({
           title: p.title,
           image: p.images?.[0]?.src || '',
           price: p.variants?.[0]?.price || '',
@@ -752,12 +765,13 @@ app.post('/generate/brochure', async (req, res) => {
       }
       return {
         ...col,
-        products: await Promise.all(products.map(async p => ({
+        // fetchBase64 de imágenes va a CDN — paralelo OK
+        products: await Promise.all(colProducts.map(async p => ({
           ...p,
           image: p.image ? await fetchBase64(p.image, 400) : '',
         }))),
       };
-    }));
+    }, 300);
 
     const folio = await shopify.getNextFolio('brochure');
 
