@@ -926,6 +926,10 @@ function adminUI(host) {
     .msg{padding:12px 16px;font-size:13px;margin-top:16px;display:none}
     .msg.ok{background:#f0faf0;border:1px solid #b8e0b8;color:#2d6a2d}
     .msg.err{background:#fff5f5;border:1px solid #f5c0c0;color:#c0392b}
+    .gen-progress{margin-top:16px;display:none}
+    .gen-progress-text{font-size:12px;color:#9a7f5a;margin-bottom:8px;letter-spacing:0.04em}
+    .gen-progress-track{height:3px;background:#e8e2da;border-radius:2px;overflow:hidden}
+    .gen-progress-fill{height:100%;background:#9a7f5a;border-radius:2px;width:0;transition:width 0.4s ease-out}
     .loading{display:none;font-size:13px;color:#999;margin-top:12px}
     .texture-thumb{aspect-ratio:4/3;overflow:hidden;border:2px solid transparent;border-radius:3px;cursor:pointer;transition:border-color 0.15s;background:#f0ece8;max-height:60px}
     .texture-thumb img{width:100%;height:100%;object-fit:cover;display:block}
@@ -1242,9 +1246,13 @@ function adminUI(host) {
       <div id="catalog-projects-list"></div>
     </div>
 
-    <div class="btn-row">
+    <div class="btn-row" id="catalog-btn-row">
       <button class="btn btn-primary" onclick="generate('catalog')">Descargar catálogo</button>
       <button class="btn btn-secondary" onclick="generate('catalog', true)">Enviar a correo interno</button>
+    </div>
+    <div class="gen-progress" id="catalog-gen-progress">
+      <div class="gen-progress-text"></div>
+      <div class="gen-progress-track"><div class="gen-progress-fill" id="catalog-gen-fill"></div></div>
     </div>
     <div class="msg" id="catalog-msg"></div>
     </div><!-- /catbroch-mode-catalog -->
@@ -1341,8 +1349,12 @@ function adminUI(host) {
       <div id="quote-projects-list"></div>
     </div>
 
-    <div class="btn-row">
+    <div class="btn-row" id="quote-btn-row">
       <button class="btn btn-primary" onclick="generate('quote')">Descargar cotización</button>
+    </div>
+    <div class="gen-progress" id="quote-gen-progress">
+      <div class="gen-progress-text"></div>
+      <div class="gen-progress-track"><div class="gen-progress-fill" id="quote-gen-fill"></div></div>
     </div>
     <div class="msg" id="quote-msg"></div>
   </div>
@@ -1546,8 +1558,12 @@ function adminUI(host) {
       <div id="brochure-projects-list"></div>
     </div>
 
-    <div class="btn-row">
+    <div class="btn-row" id="brochure-btn-row">
       <button class="btn btn-primary" onclick="generateBrochure()">Descargar brochure</button>
+    </div>
+    <div class="gen-progress" id="brochure-gen-progress">
+      <div class="gen-progress-text"></div>
+      <div class="gen-progress-track"><div class="gen-progress-fill" id="brochure-gen-fill"></div></div>
     </div>
     <div class="msg" id="brochure-msg"></div>
     </div><!-- /catbroch-mode-brochure -->
@@ -1865,6 +1881,40 @@ function getSelectedIds(prefix) {
   return Array.from(document.querySelectorAll('[name="' + prefix + '_product"]:checked')).map(c => c.value);
 }
 
+const _genTimers = {};
+
+function startGenProgress(prefix, nProds) {
+  const el = document.getElementById(prefix + '-gen-progress');
+  if (!el) return;
+  const fill = document.getElementById(prefix + '-gen-fill');
+  const textEl = el.querySelector('.gen-progress-text');
+  // ~2s base + ~0.8s por producto; mínimo 8s
+  const secs = Math.max(8, Math.round(3 + (nProds || 5) * 0.8));
+  if (textEl) textEl.textContent = \`Generando PDF — puede tardar hasta \${secs} seg. No cierres esta pestaña.\`;
+  if (fill) { fill.style.transition = 'none'; fill.style.width = '0%'; }
+  el.style.display = 'block';
+  // Desactivar botones para evitar doble-clic
+  const row = document.getElementById(prefix + '-btn-row');
+  if (row) row.querySelectorAll('button').forEach(b => b.disabled = true);
+  // Avanzar barra cada 400ms hasta 88%
+  if (_genTimers[prefix]) clearInterval(_genTimers[prefix]);
+  const start = Date.now();
+  _genTimers[prefix] = setInterval(() => {
+    const pct = Math.min(88, ((Date.now() - start) / (secs * 1000)) * 88);
+    if (fill) { fill.style.transition = 'width 0.4s ease-out'; fill.style.width = pct + '%'; }
+  }, 400);
+}
+
+function stopGenProgress(prefix) {
+  if (_genTimers[prefix]) { clearInterval(_genTimers[prefix]); delete _genTimers[prefix]; }
+  const el = document.getElementById(prefix + '-gen-progress');
+  const fill = document.getElementById(prefix + '-gen-fill');
+  if (fill) { fill.style.transition = 'width 0.3s ease'; fill.style.width = '100%'; }
+  setTimeout(() => { if (el) el.style.display = 'none'; }, 400);
+  const row = document.getElementById(prefix + '-btn-row');
+  if (row) row.querySelectorAll('button').forEach(b => b.disabled = false);
+}
+
 function showMsg(prefix, text, type) {
   const el = document.getElementById(prefix + '-msg');
   if (!text) { el.style.display = 'none'; return; }
@@ -1910,6 +1960,7 @@ async function generate(type, sendEmail = false) {
   } else {
     const ids = getSelectedIds(prefix);
     if (!ids.length) return showMsg(prefix, 'Seleccione al menos un producto.', 'err');
+    startGenProgress(prefix, ids.length);
     body = { product_ids: ids };
     if (type === 'catalog') {
       body.title = document.getElementById('catalog-title').value || 'Catálogo';
@@ -1960,16 +2011,19 @@ async function generate(type, sendEmail = false) {
     });
 
     if (res.headers.get('content-type')?.includes('application/pdf')) {
+      stopGenProgress(prefix);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = type + '.pdf'; a.click();
       URL.revokeObjectURL(url);
     } else {
+      stopGenProgress(prefix);
       const data = await res.json();
       showMsg(prefix, data.message || data.error, data.ok ? 'ok' : 'err');
     }
   } catch(e) {
+    stopGenProgress(prefix);
     showMsg(prefix, 'Error generando el documento.', 'err');
   }
 }
@@ -2383,8 +2437,8 @@ function renderBrochureCollectionList() {
 }
 
 async function generateBrochure() {
-  showMsg('brochure', 'Generando brochure…', 'ok');
   const ids = getSelectedIds('brochure');
+  startGenProgress('brochure', ids.length);
   const body = {
     company_name:   document.getElementById('brochure-company').value.trim(),
     responsable:    document.getElementById('brochure-responsable').value.trim(),
@@ -2427,6 +2481,7 @@ async function generateBrochure() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
+    stopGenProgress('brochure');
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: \`Error \${res.status}\` }));
       showMsg('brochure', err.error || 'Error generando el brochure.', 'err');
@@ -2442,6 +2497,7 @@ async function generateBrochure() {
     URL.revokeObjectURL(url);
     showMsg('brochure', 'Brochure generado correctamente.', 'ok');
   } catch(e) {
+    stopGenProgress('brochure');
     showMsg('brochure', 'Error de conexión.', 'err');
   }
 }
