@@ -287,7 +287,7 @@ function catalogHTML(products, options = {}) {
       <div class="quienes-right-section">
         <div class="quienes-right-label">Nuestra historia</div>
         <div class="quienes-right-body">
-          Bucarest Art &amp; Antiques nació en 1986 de la mano de <strong>Ricardo Pizarro Pacheco</strong>, con la misión de acercar al mercado chileno piezas de arte y antigüedades de primera línea. Desde sus inicios, Ricardo viajó personalmente a Francia para seleccionar mobiliario, pinturas, alfombras y bronces en los grandes remates europeos —<strong>Drouot, Millon y Thierry de Maigret</strong>— garantizando autenticidad y procedencia en cada adquisición.
+          Bucarest Art &amp; Antiques nació en 1986 de la mano de <strong>Ricardo Pizarro Pacheco</strong>, con la misión de acercar al mercado chileno piezas de arte y antigüedades de primera línea. Desde sus inicios operó como Galería de Arte y Casa de Remates, para luego especializarse en antigüedades en general a partir del año 2000. En 2009, Ricardo inicia la importación directa desde Francia, adquiriendo piezas en prestigiosas casas de remate como <strong>Drouot, Millon &amp; Associés y Thierry de Maigret</strong>, garantizando autenticidad y procedencia en cada adquisición.
         </div>
       </div>
       <div class="quienes-right-section">
@@ -297,9 +297,9 @@ function catalogHTML(products, options = {}) {
         </div>
       </div>
       <div class="quienes-right-section">
-        <div class="quienes-right-label">Venta corporativa</div>
+        <div class="quienes-right-label">Venta corporativa e institucional</div>
         <div class="quienes-right-body">
-          Asesoramos a empresas e instituciones en la decoración de oficinas, salas de directorio, hoteles y espacios representativos, así como en la selección de <strong>regalos corporativos</strong> de alto valor para sus mejores clientes. Trabajamos con curadería personalizada, ajustada al presupuesto y la identidad de cada organización.
+          Asesoramos a empresas, instituciones públicas, organismos gubernamentales y entidades educacionales en la decoración de oficinas, salas de directorio, hoteles y espacios representativos, así como en la selección de <strong>regalos corporativos e institucionales</strong> de alto valor para sus mejores clientes y autoridades. Trabajamos con curadería personalizada, ajustada al presupuesto y la identidad de cada organización.
         </div>
       </div>
     </div>
