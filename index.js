@@ -1223,6 +1223,7 @@ function adminUI(host) {
     <div class="card">
       <span class="section-label">Seleccionar productos</span>
       <label>Colección <select id="catalog-collection" onchange="loadProducts('catalog')"><option value="">Seleccione…</option></select></label>
+      <input id="catalog-search" placeholder="Buscar en esta colección…" oninput="searchProducts('catalog')" style="display:none;margin-top:10px;width:100%">
       <div class="loading" id="catalog-loading">Cargando productos…</div>
       <div class="status-filter" id="catalog-status-filter" style="display:none;margin-top:12px">
         <button class="status-btn active" data-status="all" onclick="filterByStatus('catalog','all',this)">Todos</button>
@@ -1471,6 +1472,7 @@ function adminUI(host) {
       <label>Colección
         <select id="brochure-collection" onchange="loadProducts('brochure')"><option value="">Seleccione…</option></select>
       </label>
+      <input id="brochure-search" placeholder="Buscar en esta colección…" oninput="searchProducts('brochure')" style="display:none;margin-top:10px;width:100%">
       <div class="loading" id="brochure-loading">Cargando productos…</div>
       <div class="status-filter" id="brochure-status-filter" style="display:none;margin-top:12px">
         <button class="status-btn active" data-status="all" onclick="filterByStatus('brochure','all',this)">Todos</button>
@@ -1707,7 +1709,18 @@ function renderProductsFiltered(prefix, allProducts, statusFilter, availFilter) 
   if (statusFilter && statusFilter !== 'all') products = products.filter(p => p.status === statusFilter);
   if (availFilter === 'available') products = products.filter(p => totalInventory(p) > 0);
   if (availFilter === 'unavailable') products = products.filter(p => totalInventory(p) === 0);
+  const searchEl = document.getElementById(prefix + '-search');
+  const q = searchEl?.value.trim().toLowerCase();
+  if (q) products = products.filter(p => p.title.toLowerCase().includes(q));
   renderRows(prefix, products);
+}
+
+function searchProducts(prefix) {
+  const activeStatusEl = document.querySelector('#' + prefix + '-status-filter .status-btn.active');
+  const status = activeStatusEl?.dataset?.status || 'all';
+  const activeAvailEl = document.querySelector('#' + prefix + '-avail-filter .avail-btn.active');
+  const avail = activeAvailEl?.dataset?.avail || 'all';
+  renderProductsFiltered(prefix, productCache[prefix] || [], status, avail);
 }
 
 function setPPP(el, val) {
@@ -1724,6 +1737,8 @@ function statusBadge(status) {
 
 function renderProducts(prefix, products, filter) {
   productCache[prefix] = products;
+  const searchEl = document.getElementById(prefix + '-search');
+  if (searchEl) { searchEl.style.display = products.length ? 'block' : 'none'; searchEl.value = ''; }
   const statusFilterEl = document.getElementById(prefix + '-status-filter');
   if (statusFilterEl) statusFilterEl.style.display = products.length ? 'flex' : 'none';
   const availFilterEl = document.getElementById(prefix + '-avail-filter');
