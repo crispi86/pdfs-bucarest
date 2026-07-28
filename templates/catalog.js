@@ -120,10 +120,10 @@ function catalogHTML(products, options = {}) {
     .cover-content {
       position: relative; z-index: 1; display: flex; flex-direction: column;
       align-items: center; gap: 24px; width: 100%; max-width: 640px;
-      background: rgba(255,255,255,0.55); padding: 52px 60px; border-radius: 4px;
+      background: rgba(255,255,255,0.78); padding: 52px 60px; border-radius: 4px;
     }
     .cover img { max-width: 240px; }
-    .cover h1 { font-size: 44px; font-weight: 300; letter-spacing: 0.08em; text-transform: uppercase; color: #1a1a1a; line-height: 1.2; }
+    .cover h1 { font-size: 44px; font-weight: 300; letter-spacing: 0.08em; color: #1a1a1a; line-height: 1.2; }
     .cover-divider { width: 60px; height: 1px; background: #9a7f5a; }
     .cover-web { font-size: 22px; font-weight: 300; letter-spacing: 0.06em; color: #1a1a1a; }
     .cover-social { display: flex; align-items: center; gap: 8px; font-size: 15px; color: #444; justify-content: center; }
@@ -143,31 +143,37 @@ function catalogHTML(products, options = {}) {
       align-items: stretch;
       overflow: hidden;
     }
-    .prod-divider { height: 1px; background: #e8e2d9; margin: 0 32px; flex-shrink: 0; }
+    .prod-divider { display: none; }
     .prod-img-wrap {
       width: 45%;
       flex-shrink: 0;
       overflow: hidden;
-      background: #f5f3f0;
+      background: #fff;
       display: flex;
       align-items: center;
       justify-content: center;
     }
     .prod-img-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
-    .prod-img-empty { width: 100%; height: 100%; background: #ede9e4; }
+    .prod-img-empty { width: 100%; height: 100%; background: #f5f3f0; }
     .prod-text {
       flex: 1;
-      padding: 40px 44px;
+      padding: 36px 44px;
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      gap: 16px;
-      border-left: 1px solid #e8e2d9;
+      justify-content: flex-start;
+      gap: 14px;
+      overflow: hidden;
     }
-    .prod-row:nth-child(odd) .prod-text { border-left: none; border-right: 1px solid #e8e2d9; }
+    .prod-row:nth-child(odd) .prod-text { border-left: none; border-right: none; }
     .prod-title { font-size: 22px; font-weight: 400; color: #1a1a1a; line-height: 1.3; }
     .prod-price { font-size: 18px; color: #9a7f5a; font-weight: 500; }
-    .prod-desc { font-size: 13px; color: #666; line-height: 1.7; }
+    .prod-desc {
+      font-size: 13px; color: #666; line-height: 1.75;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 9;
+    }
     .meta-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
     .meta-label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #9a7f5a; padding: 5px 0; width: 40%; vertical-align: top; }
     .meta-value { font-size: 13px; color: #444; padding: 5px 0; }
