@@ -1267,126 +1267,6 @@ function adminUI(host) {
     <!-- SUB: BROCHURE -->
     <div id="catbroch-mode-brochure" style="display:none">
     <p class="subtitle">Propuesta de negocios para empresas — arte, decoración y regalos corporativos exclusivos.</p>
-  <div class="page" id="page-quote">
-    <h1>Cotizaciones</h1>
-    <p class="subtitle">Genera cotizaciones con o sin datos del cliente.</p>
-
-    <div class="card">
-      <span class="section-label">Datos del cliente (opcionales)</span>
-      <div class="row row-2">
-        <label>Nombre <input id="quote-name" placeholder="Nombre del cliente"></label>
-        <label>Empresa <input id="quote-company" placeholder="Nombre empresa (opcional)"></label>
-      </div>
-      <div class="row row-2">
-        <label>Razón social <input id="quote-razon-social" placeholder="Razón social legal"></label>
-        <label>RUT <input id="quote-rut" placeholder="Ej: 12.345.678-9"></label>
-      </div>
-      <div class="row row-2">
-        <label>Dirección <input id="quote-direccion" placeholder="Dirección comercial"></label>
-        <label>Correo <input id="quote-email" type="email" placeholder="cliente@ejemplo.com"></label>
-      </div>
-      <div class="row row-2">
-        <label>Validez (días) <input id="quote-days" type="number" value="7" min="1"></label>
-      </div>
-      <label>Notas <textarea id="quote-notes" placeholder="Condiciones de pago, observaciones…"></textarea></label>
-    </div>
-
-    <div class="card">
-      <span class="section-label">Seleccionar productos</span>
-      <div id="quote-filters" class="filter-row">
-        <button class="filter-btn active" onclick="setFilter('quote','collection')">Por colección</button>
-        <button class="filter-btn" onclick="setFilter('quote','tag')">Por tag</button>
-        <button class="filter-btn" onclick="setFilter('quote','title')">Por título</button>
-        <button class="filter-btn" onclick="setFilter('quote','sku')">Por SKU</button>
-      </div>
-      <div id="quote-filter-collection" class="filter-panel active">
-        <label>Colección <select id="quote-collection" onchange="loadProducts('quote')"><option value="">Seleccione…</option></select></label>
-      </div>
-      <div id="quote-filter-tag" class="filter-panel">
-        <label>Tag <input id="quote-tag" placeholder="Ej: pintura" oninput="debounce(() => loadProducts('quote'), 600)"></label>
-      </div>
-      <div id="quote-filter-title" class="filter-panel">
-        <label>Palabra en título <input id="quote-title" placeholder="Ej: velador" oninput="debounce(() => loadProducts('quote'), 600)"></label>
-      </div>
-      <div id="quote-filter-sku" class="filter-panel">
-        <label>SKU <input id="quote-sku" placeholder="Ej: ART-001" oninput="debounce(() => loadProducts('quote'), 600)"></label>
-      </div>
-      <div class="loading" id="quote-loading">Cargando productos…</div>
-      <div class="status-filter" id="quote-status-filter" style="display:none;margin-top:12px">
-        <button class="status-btn active" data-status="all" onclick="filterByStatus('quote','all',this)">Todos</button>
-        <button class="status-btn" data-status="active" onclick="filterByStatus('quote','active',this)">Activos</button>
-        <button class="status-btn" data-status="draft" onclick="filterByStatus('quote','draft',this)">Borrador</button>
-      </div>
-      <div class="status-filter" id="quote-avail-filter" style="display:none;margin-top:6px">
-        <button class="avail-btn active" data-avail="all" onclick="filterByAvailability('quote','all',this)">Todo stock</button>
-        <button class="avail-btn" data-avail="available" onclick="filterByAvailability('quote','available',this)">Con stock</button>
-        <button class="avail-btn" data-avail="unavailable" onclick="filterByAvailability('quote','unavailable',this)">Sin stock</button>
-      </div>
-      <div class="product-list" id="quote-products"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div class="selected-count" id="quote-count"></div>
-        <button class="select-all-btn" id="quote-select-all" onclick="toggleSelectAll('quote')" style="display:none">Seleccionar todos</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <span class="section-label">Presentación del PDF</span>
-      <div style="margin-bottom:16px">
-        <label style="margin-bottom:8px;display:block">Productos por página</label>
-        <div style="display:flex;gap:8px;margin-top:6px">
-          <button class="ppp-btn" data-ppp="1" onclick="setPPP(this,1)">1 — Ampliado</button>
-          <button class="ppp-btn" data-ppp="2" onclick="setPPP(this,2)">2 — Estándar</button>
-          <button class="ppp-btn active" data-ppp="3" onclick="setPPP(this,3)">3 — Compacto</button>
-        </div>
-        <p style="font-size:12px;color:#999;margin-top:8px">Ampliado: imagen grande, ideal para piezas destacadas. Compacto: lista eficiente para muchos productos.</p>
-        <input type="hidden" id="quote-ppp" value="3">
-      </div>
-      <div class="checkbox-row"><input type="checkbox" id="quote-show-links"><label for="quote-show-links" style="text-transform:none;letter-spacing:0;font-size:13px">Incluir enlace clickeable a la tienda en cada producto</label></div>
-      <div class="checkbox-row"><input type="checkbox" id="quote-show-desc" checked><label for="quote-show-desc" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar descripción del producto</label></div>
-      <div class="checkbox-row"><input type="checkbox" id="quote-show-sku"><label for="quote-show-sku" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar SKU</label></div>
-    </div>
-
-    <div class="card">
-      <span class="section-label">Proyectos guardados</span>
-      <p style="font-size:12px;color:#999;margin-bottom:12px">Guarda la configuración actual para retomar o reutilizar luego desde cualquier dispositivo.</p>
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <input id="quote-project-name" placeholder="Nombre del proyecto (ej: Cotización empresa ABC)" style="flex:1">
-        <button class="btn btn-secondary" onclick="saveProject('quote')" style="white-space:nowrap">Guardar</button>
-      </div>
-      <div id="quote-projects-list"></div>
-    </div>
-
-    <div class="btn-row" id="quote-btn-row">
-      <button class="btn btn-primary" onclick="generate('quote')">Descargar cotización</button>
-    </div>
-    <div class="gen-progress" id="quote-gen-progress">
-      <div class="gen-progress-text"></div>
-      <div class="gen-progress-track"><div class="gen-progress-fill" id="quote-gen-fill"></div></div>
-    </div>
-    <div class="msg" id="quote-msg"></div>
-  </div>
-
-  <!-- COMPROBANTES -->
-  <div class="page" id="page-receipt">
-    <h1>Comprobantes de Venta</h1>
-    <p class="subtitle">Genera un comprobante en PDF para cualquier orden.</p>
-    <div class="automation-notice">
-      <strong>Automatización activa</strong>
-      Por cada pedido pagado en la tienda, se envía automáticamente un comprobante de venta al correo del cliente.
-    </div>
-
-    <div class="card">
-      <label>Número o ID de la orden
-        <input id="receipt-order" placeholder="Ej: 1234 o el ID completo">
-      </label>
-    </div>
-
-    <div class="btn-row">
-      <button class="btn btn-primary" onclick="generate('receipt')">Descargar comprobante</button>
-      <button class="btn btn-secondary" onclick="generate('receipt', true)">Enviar al cliente</button>
-    </div>
-    <div class="msg" id="receipt-msg"></div>
-  </div>
 
     <div class="card">
       <span class="section-label">Empresa destinataria</span>
@@ -1556,6 +1436,127 @@ function adminUI(host) {
     </div><!-- /catbroch-mode-brochure -->
 
   </div><!-- /page-catalog -->
+
+  <div class="page" id="page-quote">
+    <h1>Cotizaciones</h1>
+    <p class="subtitle">Genera cotizaciones con o sin datos del cliente.</p>
+
+    <div class="card">
+      <span class="section-label">Datos del cliente (opcionales)</span>
+      <div class="row row-2">
+        <label>Nombre <input id="quote-name" placeholder="Nombre del cliente"></label>
+        <label>Empresa <input id="quote-company" placeholder="Nombre empresa (opcional)"></label>
+      </div>
+      <div class="row row-2">
+        <label>Razón social <input id="quote-razon-social" placeholder="Razón social legal"></label>
+        <label>RUT <input id="quote-rut" placeholder="Ej: 12.345.678-9"></label>
+      </div>
+      <div class="row row-2">
+        <label>Dirección <input id="quote-direccion" placeholder="Dirección comercial"></label>
+        <label>Correo <input id="quote-email" type="email" placeholder="cliente@ejemplo.com"></label>
+      </div>
+      <div class="row row-2">
+        <label>Validez (días) <input id="quote-days" type="number" value="7" min="1"></label>
+      </div>
+      <label>Notas <textarea id="quote-notes" placeholder="Condiciones de pago, observaciones…"></textarea></label>
+    </div>
+
+    <div class="card">
+      <span class="section-label">Seleccionar productos</span>
+      <div id="quote-filters" class="filter-row">
+        <button class="filter-btn active" onclick="setFilter('quote','collection')">Por colección</button>
+        <button class="filter-btn" onclick="setFilter('quote','tag')">Por tag</button>
+        <button class="filter-btn" onclick="setFilter('quote','title')">Por título</button>
+        <button class="filter-btn" onclick="setFilter('quote','sku')">Por SKU</button>
+      </div>
+      <div id="quote-filter-collection" class="filter-panel active">
+        <label>Colección <select id="quote-collection" onchange="loadProducts('quote')"><option value="">Seleccione…</option></select></label>
+      </div>
+      <div id="quote-filter-tag" class="filter-panel">
+        <label>Tag <input id="quote-tag" placeholder="Ej: pintura" oninput="debounce(() => loadProducts('quote'), 600)"></label>
+      </div>
+      <div id="quote-filter-title" class="filter-panel">
+        <label>Palabra en título <input id="quote-title" placeholder="Ej: velador" oninput="debounce(() => loadProducts('quote'), 600)"></label>
+      </div>
+      <div id="quote-filter-sku" class="filter-panel">
+        <label>SKU <input id="quote-sku" placeholder="Ej: ART-001" oninput="debounce(() => loadProducts('quote'), 600)"></label>
+      </div>
+      <div class="loading" id="quote-loading">Cargando productos…</div>
+      <div class="status-filter" id="quote-status-filter" style="display:none;margin-top:12px">
+        <button class="status-btn active" data-status="all" onclick="filterByStatus('quote','all',this)">Todos</button>
+        <button class="status-btn" data-status="active" onclick="filterByStatus('quote','active',this)">Activos</button>
+        <button class="status-btn" data-status="draft" onclick="filterByStatus('quote','draft',this)">Borrador</button>
+      </div>
+      <div class="status-filter" id="quote-avail-filter" style="display:none;margin-top:6px">
+        <button class="avail-btn active" data-avail="all" onclick="filterByAvailability('quote','all',this)">Todo stock</button>
+        <button class="avail-btn" data-avail="available" onclick="filterByAvailability('quote','available',this)">Con stock</button>
+        <button class="avail-btn" data-avail="unavailable" onclick="filterByAvailability('quote','unavailable',this)">Sin stock</button>
+      </div>
+      <div class="product-list" id="quote-products"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="selected-count" id="quote-count"></div>
+        <button class="select-all-btn" id="quote-select-all" onclick="toggleSelectAll('quote')" style="display:none">Seleccionar todos</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="section-label">Presentación del PDF</span>
+      <div style="margin-bottom:16px">
+        <label style="margin-bottom:8px;display:block">Productos por página</label>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <button class="ppp-btn" data-ppp="1" onclick="setPPP(this,1)">1 — Ampliado</button>
+          <button class="ppp-btn" data-ppp="2" onclick="setPPP(this,2)">2 — Estándar</button>
+          <button class="ppp-btn active" data-ppp="3" onclick="setPPP(this,3)">3 — Compacto</button>
+        </div>
+        <p style="font-size:12px;color:#999;margin-top:8px">Ampliado: imagen grande, ideal para piezas destacadas. Compacto: lista eficiente para muchos productos.</p>
+        <input type="hidden" id="quote-ppp" value="3">
+      </div>
+      <div class="checkbox-row"><input type="checkbox" id="quote-show-links"><label for="quote-show-links" style="text-transform:none;letter-spacing:0;font-size:13px">Incluir enlace clickeable a la tienda en cada producto</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="quote-show-desc" checked><label for="quote-show-desc" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar descripción del producto</label></div>
+      <div class="checkbox-row"><input type="checkbox" id="quote-show-sku"><label for="quote-show-sku" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar SKU</label></div>
+    </div>
+
+    <div class="card">
+      <span class="section-label">Proyectos guardados</span>
+      <p style="font-size:12px;color:#999;margin-bottom:12px">Guarda la configuración actual para retomar o reutilizar luego desde cualquier dispositivo.</p>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <input id="quote-project-name" placeholder="Nombre del proyecto (ej: Cotización empresa ABC)" style="flex:1">
+        <button class="btn btn-secondary" onclick="saveProject('quote')" style="white-space:nowrap">Guardar</button>
+      </div>
+      <div id="quote-projects-list"></div>
+    </div>
+
+    <div class="btn-row" id="quote-btn-row">
+      <button class="btn btn-primary" onclick="generate('quote')">Descargar cotización</button>
+    </div>
+    <div class="gen-progress" id="quote-gen-progress">
+      <div class="gen-progress-text"></div>
+      <div class="gen-progress-track"><div class="gen-progress-fill" id="quote-gen-fill"></div></div>
+    </div>
+    <div class="msg" id="quote-msg"></div>
+  </div>
+
+  <!-- COMPROBANTES -->
+  <div class="page" id="page-receipt">
+    <h1>Comprobantes de Venta</h1>
+    <p class="subtitle">Genera un comprobante en PDF para cualquier orden.</p>
+    <div class="automation-notice">
+      <strong>Automatización activa</strong>
+      Por cada pedido pagado en la tienda, se envía automáticamente un comprobante de venta al correo del cliente.
+    </div>
+
+    <div class="card">
+      <label>Número o ID de la orden
+        <input id="receipt-order" placeholder="Ej: 1234 o el ID completo">
+      </label>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="generate('receipt')">Descargar comprobante</button>
+      <button class="btn btn-secondary" onclick="generate('receipt', true)">Enviar al cliente</button>
+    </div>
+    <div class="msg" id="receipt-msg"></div>
+  </div>
 
 </div>
 
