@@ -167,7 +167,7 @@ function catalogHTML(products, options = {}) {
     .prod-row:nth-child(odd) .prod-text { border-left: none; border-right: none; }
     .prod-title { font-size: 22px; font-weight: 400; color: #1a1a1a; line-height: 1.3; }
     .prod-price { font-size: 18px; color: #9a7f5a; font-weight: 500; }
-    .prod-desc { font-size: 13px; color: #666; line-height: 1.4; overflow: hidden; }
+    .prod-desc { font-size: 13px; color: #666; line-height: 1.2; overflow: hidden; }
     .meta-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
     .meta-label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #9a7f5a; padding: 5px 0; width: 40%; vertical-align: top; }
     .meta-value { font-size: 13px; color: #444; padding: 5px 0; }

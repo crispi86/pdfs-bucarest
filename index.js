@@ -435,6 +435,33 @@ app.get('/api/collection-products/:id', async (req, res) => {
   }
 });
 
+app.get('/api/collection-metafields/:id', async (req, res) => {
+  try {
+    const cacheKey = 'mf-col-' + req.params.id;
+    const fields = await withCache(cacheKey, 10 * 60 * 1000, async () => {
+      const products = await shopify.getProductsByCollection(req.params.id);
+      const sample = products.slice(0, 6);
+      const MF_ORDER  = ['origen','epocas','estilo','materiales','medidas','estado'];
+      const MF_LABELS = { origen:'Origen', epocas:'Época', estilo:'Estilo de diseño', materiales:'Materiales', medidas:'Medidas (Ancho · Profundidad · Alto)', estado:'Estado' };
+      const found = new Set();
+      for (const p of sample) {
+        const mf = await shopify.getProductMetafields(p.id);
+        if (mf.origen)          found.add('origen');
+        if (mf.epocas)          found.add('epocas');
+        if (mf.estilo_de_diseno) found.add('estilo');
+        if (mf.materiales)      found.add('materiales');
+        if (mf.ancho || mf.profundidad || mf.alto) found.add('medidas');
+        if (mf.estado)          found.add('estado');
+        await new Promise(r => setTimeout(r, 300));
+      }
+      return MF_ORDER.filter(k => found.has(k)).map(k => ({ key: k, label: MF_LABELS[k] }));
+    });
+    res.json(fields);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/files', async (req, res) => {
   try {
     const products = await shopify.getAllPages('products.json?fields=id,title,images&limit=250', 'products');
@@ -1163,13 +1190,9 @@ function adminUI(host) {
       <div class="checkbox-row"><input type="checkbox" id="catalog-prices" checked><label for="catalog-prices" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar precios</label></div>
       <div class="checkbox-row"><input type="checkbox" id="catalog-show-estado"><label for="catalog-show-estado" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar metacampo Estado</label></div>
       <div class="checkbox-row"><input type="checkbox" id="catalog-quienes-somos"><label for="catalog-quienes-somos" style="text-transform:none;letter-spacing:0;font-size:13px">Incluir página "Quiénes somos"</label></div>
-      <div style="margin-top:14px;border-top:1px solid #f0ece8;padding-top:12px">
+      <div id="catalog-mf-area" style="margin-top:14px;border-top:1px solid #f0ece8;padding-top:12px;display:none">
         <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#9a7f5a;margin-bottom:10px;font-weight:500">Metacampos a incluir</div>
-        <div class="checkbox-row"><input type="checkbox" id="catalog-mf-origen" checked><label for="catalog-mf-origen" style="text-transform:none;letter-spacing:0;font-size:13px">Origen</label></div>
-        <div class="checkbox-row"><input type="checkbox" id="catalog-mf-estilo" checked><label for="catalog-mf-estilo" style="text-transform:none;letter-spacing:0;font-size:13px">Estilo</label></div>
-        <div class="checkbox-row"><input type="checkbox" id="catalog-mf-epocas" checked><label for="catalog-mf-epocas" style="text-transform:none;letter-spacing:0;font-size:13px">Época</label></div>
-        <div class="checkbox-row"><input type="checkbox" id="catalog-mf-materiales" checked><label for="catalog-mf-materiales" style="text-transform:none;letter-spacing:0;font-size:13px">Materiales</label></div>
-        <div class="checkbox-row"><input type="checkbox" id="catalog-mf-medidas" checked><label for="catalog-mf-medidas" style="text-transform:none;letter-spacing:0;font-size:13px">Medidas (Ancho · Profundidad · Alto)</label></div>
+        <div id="catalog-mf-checks"></div>
       </div>
     </div>
 
@@ -1199,24 +1222,7 @@ function adminUI(host) {
 
     <div class="card">
       <span class="section-label">Seleccionar productos</span>
-      <div id="catalog-filters" class="filter-row">
-        <button class="filter-btn active" onclick="setFilter('catalog','collection')">Por colección</button>
-        <button class="filter-btn" onclick="setFilter('catalog','tag')">Por tag</button>
-        <button class="filter-btn" onclick="setFilter('catalog','title')">Por título</button>
-        <button class="filter-btn" onclick="setFilter('catalog','sku')">Por SKU</button>
-      </div>
-      <div id="catalog-filter-collection" class="filter-panel active">
-        <label>Colección <select id="catalog-collection" onchange="loadProducts('catalog')"><option value="">Seleccione…</option></select></label>
-      </div>
-      <div id="catalog-filter-tag" class="filter-panel">
-        <label>Tag <input id="catalog-tag" placeholder="Ej: oleo" oninput="debounce(() => loadProducts('catalog'), 600)"></label>
-      </div>
-      <div id="catalog-filter-title" class="filter-panel">
-        <label>Palabra en título <input id="catalog-title-filter" placeholder="Ej: silla" oninput="debounce(() => loadProducts('catalog'), 600)"></label>
-      </div>
-      <div id="catalog-filter-sku" class="filter-panel">
-        <label>SKU <input id="catalog-sku" placeholder="Ej: ART-001" oninput="debounce(() => loadProducts('catalog'), 600)"></label>
-      </div>
+      <label>Colección <select id="catalog-collection" onchange="loadProducts('catalog')"><option value="">Seleccione…</option></select></label>
       <div class="loading" id="catalog-loading">Cargando productos…</div>
       <div class="status-filter" id="catalog-status-filter" style="display:none;margin-top:12px">
         <button class="status-btn active" data-status="all" onclick="filterByStatus('catalog','all',this)">Todos</button>
@@ -1462,26 +1468,9 @@ function adminUI(host) {
     <div class="card">
       <span class="section-label">Piezas destacadas (opcional)</span>
       <p style="font-size:12px;color:#999;margin-bottom:12px">Agrega productos de tu catálogo. Cada uno aparecerá en una página dedicada con imagen grande.</p>
-      <div id="brochure-filters" class="filter-row">
-        <button class="filter-btn active" onclick="setFilter('brochure','collection')">Por colección</button>
-        <button class="filter-btn" onclick="setFilter('brochure','tag')">Por tag</button>
-        <button class="filter-btn" onclick="setFilter('brochure','title')">Por título</button>
-        <button class="filter-btn" onclick="setFilter('brochure','sku')">Por SKU</button>
-      </div>
-      <div id="brochure-filter-collection" class="filter-panel active">
-        <label>Colección
-          <select id="brochure-collection" onchange="loadProducts('brochure')"><option value="">Seleccione…</option></select>
-        </label>
-      </div>
-      <div id="brochure-filter-tag" class="filter-panel">
-        <label>Tag <input id="brochure-tag" placeholder="Ej: pintura" oninput="debounce(() => loadProducts('brochure'), 600)"></label>
-      </div>
-      <div id="brochure-filter-title" class="filter-panel">
-        <label>Palabra en título <input id="brochure-title-filter" placeholder="Ej: óleo" oninput="debounce(() => loadProducts('brochure'), 600)"></label>
-      </div>
-      <div id="brochure-filter-sku" class="filter-panel">
-        <label>SKU <input id="brochure-sku" placeholder="Ej: ART-001" oninput="debounce(() => loadProducts('brochure'), 600)"></label>
-      </div>
+      <label>Colección
+        <select id="brochure-collection" onchange="loadProducts('brochure')"><option value="">Seleccione…</option></select>
+      </label>
       <div class="loading" id="brochure-loading">Cargando productos…</div>
       <div class="status-filter" id="brochure-status-filter" style="display:none;margin-top:12px">
         <button class="status-btn active" data-status="all" onclick="filterByStatus('brochure','all',this)">Todos</button>
@@ -1500,13 +1489,9 @@ function adminUI(host) {
         <input type="checkbox" id="brochure-show-prices">
         <label for="brochure-show-prices" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar precios en el brochure</label>
       </div>
-      <div style="margin-top:14px;border-top:1px solid #f0ece8;padding-top:12px">
+      <div id="brochure-mf-area" style="margin-top:14px;border-top:1px solid #f0ece8;padding-top:12px;display:none">
         <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#9a7f5a;margin-bottom:10px;font-weight:500">Metacampos a incluir</div>
-        <div class="checkbox-row"><input type="checkbox" id="brochure-mf-origen" checked><label for="brochure-mf-origen" style="text-transform:none;letter-spacing:0;font-size:13px">Origen</label></div>
-        <div class="checkbox-row"><input type="checkbox" id="brochure-mf-estilo" checked><label for="brochure-mf-estilo" style="text-transform:none;letter-spacing:0;font-size:13px">Estilo</label></div>
-        <div class="checkbox-row"><input type="checkbox" id="brochure-mf-epocas" checked><label for="brochure-mf-epocas" style="text-transform:none;letter-spacing:0;font-size:13px">Época</label></div>
-        <div class="checkbox-row"><input type="checkbox" id="brochure-mf-materiales" checked><label for="brochure-mf-materiales" style="text-transform:none;letter-spacing:0;font-size:13px">Materiales</label></div>
-        <div class="checkbox-row"><input type="checkbox" id="brochure-mf-medidas" checked><label for="brochure-mf-medidas" style="text-transform:none;letter-spacing:0;font-size:13px">Medidas (Ancho · Profundidad · Alto)</label></div>
+        <div id="brochure-mf-checks"></div>
       </div>
       <div style="margin-top:14px;display:flex;align-items:center;gap:20px">
         <span style="font-size:12px;color:#666;letter-spacing:0.06em;text-transform:uppercase">Productos por página:</span>
@@ -1616,15 +1601,64 @@ function setFilter(prefix, type) {
 let debounceTimer;
 function debounce(fn, ms) { clearTimeout(debounceTimer); debounceTimer = setTimeout(fn, ms); }
 
+const _pendingMfRestore = {};
+
+async function loadMetafields(prefix, collectionId) {
+  const area = document.getElementById(prefix + '-mf-area');
+  if (!area) return;
+  if (!collectionId) { area.style.display = 'none'; return; }
+  try {
+    const res = await fetch('/api/collection-metafields/' + collectionId);
+    if (!res.ok) return;
+    const fields = await res.json();
+    const checksEl = document.getElementById(prefix + '-mf-checks');
+    if (!checksEl) return;
+    checksEl.innerHTML = fields.map(f => \`
+      <div class="checkbox-row">
+        <input type="checkbox" id="\${prefix}-mf-\${f.key}" value="\${f.key}" checked>
+        <label for="\${prefix}-mf-\${f.key}" style="text-transform:none;letter-spacing:0;font-size:13px">\${f.label}</label>
+      </div>\`).join('');
+    area.style.display = fields.length ? 'block' : 'none';
+    if (_pendingMfRestore[prefix]) {
+      const pending = _pendingMfRestore[prefix];
+      delete _pendingMfRestore[prefix];
+      checksEl.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = pending.includes(cb.value); });
+    }
+  } catch(e) {
+    console.warn('[loadMetafields]', e.message);
+  }
+}
+
+function _getMfKeys(prefix) {
+  return [...document.querySelectorAll('#' + prefix + '-mf-area input[type=checkbox]:checked')].map(cb => cb.value);
+}
+
 async function loadProducts(prefix) {
   const loading = document.getElementById(prefix + '-loading');
   const list = document.getElementById(prefix + '-products');
   loading.style.display = 'block';
   list.innerHTML = '';
 
-  const activeFilter = document.querySelector('#' + prefix + '-filters .filter-btn.active').textContent.toLowerCase();
-  let url = '/api/products?';
+  // Catalog y brochure: solo por colección
+  if (prefix === 'catalog' || prefix === 'brochure') {
+    const col = document.getElementById(prefix + '-collection')?.value;
+    if (!col) { loading.style.display = 'none'; return; }
+    try {
+      const res = await fetch('/api/products?collection_id=' + col);
+      const products = await res.json();
+      loading.style.display = 'none';
+      renderProducts(prefix, products);
+      loadMetafields(prefix, col);
+    } catch(e) {
+      loading.style.display = 'none';
+      list.innerHTML = '<p style="padding:12px;color:#c00;font-size:13px">Error cargando productos.</p>';
+    }
+    return;
+  }
 
+  // Otros prefixes (cert, quote): filtros múltiples
+  const activeFilter = document.querySelector('#' + prefix + '-filters .filter-btn.active')?.textContent.toLowerCase() || '';
+  let url = '/api/products?';
   if (activeFilter.includes('colección')) {
     const col = document.getElementById(prefix + '-collection').value;
     if (!col) { loading.style.display = 'none'; return; }
@@ -1634,8 +1668,8 @@ async function loadProducts(prefix) {
     if (!tag) { loading.style.display = 'none'; return; }
     url += 'tag=' + encodeURIComponent(tag);
   } else if (activeFilter.includes('título')) {
-    const titleInput = ['catalog', 'cert', 'brochure'].includes(prefix) ? prefix + '-title-filter' : prefix + '-title';
-    const t = document.getElementById(titleInput).value.trim();
+    const titleInput = prefix === 'cert' ? prefix + '-title-filter' : prefix + '-title';
+    const t = document.getElementById(titleInput)?.value.trim();
     if (!t) { loading.style.display = 'none'; return; }
     url += 'title=' + encodeURIComponent(t);
   } else if (activeFilter.includes('sku')) {
@@ -1643,7 +1677,6 @@ async function loadProducts(prefix) {
     if (!s) { loading.style.display = 'none'; return; }
     url += 'sku=' + encodeURIComponent(s);
   }
-
   try {
     const res = await fetch(url);
     const products = await res.json();
@@ -1967,8 +2000,7 @@ async function generate(type, sendEmail = false) {
       body.show_prices = document.getElementById('catalog-prices').checked ? 'true' : 'false';
       body.show_estado = document.getElementById('catalog-show-estado').checked ? 'true' : 'false';
       body.show_quienes_somos = document.getElementById('catalog-quienes-somos').checked ? 'true' : 'false';
-      body.meta_fields = ['origen','estilo','epocas','materiales','medidas']
-        .filter(f => document.getElementById('catalog-mf-' + f)?.checked);
+      body.meta_fields = _getMfKeys('catalog');
       body.responsable = document.getElementById('catalog-responsable').value;
       body.cargo = document.getElementById('catalog-cargo').value;
       body.correo = document.getElementById('catalog-correo').value;
@@ -2446,8 +2478,7 @@ async function generateBrochure() {
     correo:         document.getElementById('brochure-correo').value.trim(),
     telefono:       document.getElementById('brochure-telefono').value.trim(),
     show_prices:  document.getElementById('brochure-show-prices').checked,
-    meta_fields:  ['origen','estilo','epocas','materiales','medidas']
-      .filter(f => document.getElementById('brochure-mf-' + f)?.checked),
+    meta_fields:  _getMfKeys('brochure'),
     textura_url:  document.getElementById('brochure-textura-url').value,
     contexto_images: Object.fromEntries(
       ['quienes','rescate','servicios','regalos','porque','europa','proceso','contacto']
@@ -2551,7 +2582,8 @@ function _collectBrochureState() {
     cover_tag:       document.getElementById('brochure-cover-tag')?.value.trim() || '',
     cover_title:     document.getElementById('brochure-cover-title')?.value.trim() || '',
     cover_sub:       document.getElementById('brochure-cover-sub')?.value.trim() || '',
-    meta_fields:     ['origen','estilo','epocas','materiales','medidas'].filter(f => document.getElementById('brochure-mf-' + f)?.checked),
+    meta_fields:     _getMfKeys('brochure'),
+    collection_id:   document.getElementById('brochure-collection')?.value || '',
     products_per_page: document.querySelector('input[name="brochure-ppp"]:checked')?.value || '1',
     proyecto:        document.getElementById('brochure-proyecto')?.value.trim() || '',
     product_ids:     getSelectedIds('brochure'),
@@ -2580,7 +2612,8 @@ function _collectCatalogState() {
     cargo:          document.getElementById('catalog-cargo')?.value.trim() || '',
     correo:         document.getElementById('catalog-correo')?.value.trim() || '',
     telefono:       document.getElementById('catalog-telefono')?.value.trim() || '',
-    meta_fields:    ['origen','estilo','epocas','materiales','medidas'].filter(f => document.getElementById('catalog-mf-' + f)?.checked),
+    meta_fields:    _getMfKeys('catalog'),
+    collection_id:  document.getElementById('catalog-collection')?.value || '',
     bg_image:       document.getElementById('catalog-bg-url')?.value || '',
     product_ids:    getSelectedIds('catalog'),
     _ms_products:   [..._msMap('catalog').values()],
@@ -2626,7 +2659,10 @@ function _restoreBrochureState(data) {
       t.classList.toggle('selected', t.dataset.url === data.textura_url);
     });
   }
-  ['origen','estilo','epocas','materiales','medidas'].forEach(f => chk('brochure-mf-' + f, (data.meta_fields || []).includes(f)));
+  if (data.collection_id) {
+    const colEl = document.getElementById('brochure-collection');
+    if (colEl) { colEl.value = data.collection_id; _pendingMfRestore['brochure'] = data.meta_fields || []; loadProducts('brochure'); }
+  }
   [
     ['brochure-page-quienes',   'quienes'],
     ['brochure-page-rescate',   'rescate'],
@@ -2680,7 +2716,10 @@ function _restoreCatalogState(data) {
   set('catalog-cargo', data.cargo || '');
   set('catalog-correo', data.correo || '');
   set('catalog-telefono', data.telefono || '');
-  ['origen','estilo','epocas','materiales','medidas'].forEach(f => chk('catalog-mf-' + f, (data.meta_fields || []).includes(f)));
+  if (data.collection_id) {
+    const colEl = document.getElementById('catalog-collection');
+    if (colEl) { colEl.value = data.collection_id; _pendingMfRestore['catalog'] = data.meta_fields || []; loadProducts('catalog'); }
+  }
   set('catalog-bg-url', data.bg_image || '');
   const msItems = Array.isArray(data._ms_products) && data._ms_products.length ? data._ms_products
     : (Array.isArray(data.product_ids) && data.product_ids.length ? data.product_ids.map(id => ({ id })) : null);
