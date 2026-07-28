@@ -178,7 +178,7 @@ function brochureHTML(products, options = {}) {
     .cover-logo { max-width: 180px; filter: brightness(0) invert(1); opacity: 0.88; margin-bottom: 36px; }
     .cover-line { width: 44px; height: 1px; background: #9a7f5a; margin-bottom: 28px; }
     .cover-tag { font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase; color: #9a7f5a; margin-bottom: 16px; }
-    .cover-title { font-size: 34px; font-weight: 300; letter-spacing: 0.03em; text-transform: uppercase; line-height: 1.2; color: #fff; margin-bottom: 20px; }
+    .cover-title { font-size: 34px; font-weight: 300; letter-spacing: 0.03em; line-height: 1.2; color: #fff; margin-bottom: 20px; }
     .cover-sub { font-size: 13px; color: rgba(255,255,255,0.45); line-height: 1.85; font-weight: 300; max-width: 360px; }
     .cover-company { margin-top: 36px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 22px; font-size: 11px; color: rgba(255,255,255,0.35); letter-spacing: 0.14em; text-transform: uppercase; }
     .cover-company-name { font-size: 16px; color: rgba(255,255,255,0.82); font-weight: 300; letter-spacing: 0.05em; margin-top: 5px; }
