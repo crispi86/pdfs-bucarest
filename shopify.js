@@ -421,8 +421,13 @@ async function deleteProject(type, projectId) {
 }
 
 async function getLocations() {
-  const { body } = await shopifyRequest('GET', 'locations.json');
-  return (body.locations || []).filter(l => l.active);
+  try {
+    const { body } = await shopifyRequest('GET', 'locations.json');
+    return (body.locations || []).filter(l => l.active);
+  } catch (e) {
+    console.warn('[shopify] getLocations falló (scope read_locations no disponible):', e.message);
+    return [];
+  }
 }
 
 async function isProductInCollection(productId, collectionId) {
