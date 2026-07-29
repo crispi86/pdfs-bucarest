@@ -1567,6 +1567,9 @@ function adminUI(host) {
 <script>
 const collections = {};
 
+let _collectionsReady;
+const _collectionsReadyPromise = new Promise(resolve => { _collectionsReady = resolve; });
+
 async function init() {
   try {
     const res = await fetch('/api/collections');
@@ -1583,6 +1586,8 @@ async function init() {
     });
   } catch(e) {
     console.error('[init] Error cargando colecciones:', e);
+  } finally {
+    _collectionsReady();
   }
   loadTexturePicker();
   loadBrochurePickers();
@@ -2686,8 +2691,11 @@ function _restoreBrochureState(data) {
     });
   }
   if (data.collection_id) {
-    const colEl = document.getElementById('brochure-collection');
-    if (colEl) { colEl.value = data.collection_id; _pendingMfRestore['brochure'] = data.meta_fields || []; loadProducts('brochure'); }
+    _pendingMfRestore['brochure'] = data.meta_fields || [];
+    _collectionsReadyPromise.then(() => {
+      const colEl = document.getElementById('brochure-collection');
+      if (colEl) { colEl.value = data.collection_id; loadProducts('brochure'); }
+    });
   }
   [
     ['brochure-page-quienes',   'quienes'],
@@ -2743,8 +2751,11 @@ function _restoreCatalogState(data) {
   set('catalog-correo', data.correo || '');
   set('catalog-telefono', data.telefono || '');
   if (data.collection_id) {
-    const colEl = document.getElementById('catalog-collection');
-    if (colEl) { colEl.value = data.collection_id; _pendingMfRestore['catalog'] = data.meta_fields || []; loadProducts('catalog'); }
+    _pendingMfRestore['catalog'] = data.meta_fields || [];
+    _collectionsReadyPromise.then(() => {
+      const colEl = document.getElementById('catalog-collection');
+      if (colEl) { colEl.value = data.collection_id; loadProducts('catalog'); }
+    });
   }
   set('catalog-bg-url', data.bg_image || '');
   const msItems = Array.isArray(data._ms_products) && data._ms_products.length ? data._ms_products
