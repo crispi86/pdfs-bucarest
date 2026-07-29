@@ -454,10 +454,13 @@ app.get('/api/collection-metafields/:id', async (req, res) => {
         if (mf.estado)          found.add('estado');
         await new Promise(r => setTimeout(r, 300));
       }
-      return MF_ORDER.filter(k => found.has(k)).map(k => ({ key: k, label: MF_LABELS[k] }));
+      const result = MF_ORDER.filter(k => found.has(k)).map(k => ({ key: k, label: MF_LABELS[k] }));
+      console.log(`[collection-metafields] col=${req.params.id} sample=${sample.length} found=${[...found].join(',')} → ${result.length} keys`);
+      return result;
     });
     res.json(fields);
   } catch (e) {
+    console.error('[collection-metafields] error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -1610,25 +1613,32 @@ async function loadMetafields(prefix, collectionId) {
   const area = document.getElementById(prefix + '-mf-area');
   if (!area) return;
   if (!collectionId) { area.style.display = 'none'; return; }
+  const checksEl = document.getElementById(prefix + '-mf-checks');
+  if (!checksEl) return;
+  area.style.display = 'block';
+  checksEl.innerHTML = '<p style="font-size:12px;color:#999;margin:4px 0">Cargando metacampos…</p>';
   try {
     const res = await fetch('/api/collection-metafields/' + collectionId);
-    if (!res.ok) return;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Error ' + res.status }));
+      checksEl.innerHTML = \`<p style="font-size:12px;color:#c00;margin:4px 0">Error cargando metacampos: \${err.error || res.status}</p>\`;
+      return;
+    }
     const fields = await res.json();
-    const checksEl = document.getElementById(prefix + '-mf-checks');
-    if (!checksEl) return;
+    if (!fields.length) { area.style.display = 'none'; return; }
     checksEl.innerHTML = fields.map(f => \`
       <div class="checkbox-row">
         <input type="checkbox" id="\${prefix}-mf-\${f.key}" value="\${f.key}" checked>
         <label for="\${prefix}-mf-\${f.key}" style="text-transform:none;letter-spacing:0;font-size:13px">\${f.label}</label>
       </div>\`).join('');
-    area.style.display = fields.length ? 'block' : 'none';
     if (_pendingMfRestore[prefix]) {
       const pending = _pendingMfRestore[prefix];
       delete _pendingMfRestore[prefix];
       checksEl.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = pending.includes(cb.value); });
     }
   } catch(e) {
-    console.warn('[loadMetafields]', e.message);
+    checksEl.innerHTML = \`<p style="font-size:12px;color:#c00;margin:4px 0">Error: \${e.message}</p>\`;
+    console.error('[loadMetafields]', e);
   }
 }
 
