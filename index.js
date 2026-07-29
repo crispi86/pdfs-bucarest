@@ -1190,10 +1190,6 @@ function adminUI(host) {
       <div class="checkbox-row"><input type="checkbox" id="catalog-prices" checked><label for="catalog-prices" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar precios</label></div>
       <div class="checkbox-row"><input type="checkbox" id="catalog-show-estado"><label for="catalog-show-estado" style="text-transform:none;letter-spacing:0;font-size:13px">Mostrar metacampo Estado</label></div>
       <div class="checkbox-row"><input type="checkbox" id="catalog-quienes-somos"><label for="catalog-quienes-somos" style="text-transform:none;letter-spacing:0;font-size:13px">Incluir página "Quiénes somos"</label></div>
-      <div id="catalog-mf-area" style="margin-top:14px;border-top:1px solid #f0ece8;padding-top:12px;display:none">
-        <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#9a7f5a;margin-bottom:10px;font-weight:500">Metacampos a incluir</div>
-        <div id="catalog-mf-checks"></div>
-      </div>
     </div>
 
     <div class="card">
@@ -1241,6 +1237,10 @@ function adminUI(host) {
         <button class="select-all-btn" id="catalog-select-all" onclick="toggleSelectAll('catalog')" style="display:none">Seleccionar todos</button>
       </div>
       <div class="ms-basket" id="catalog-basket"></div>
+      <div id="catalog-mf-area" style="margin-top:14px;border-top:1px solid #f0ece8;padding-top:12px;display:none">
+        <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#9a7f5a;margin-bottom:10px;font-weight:500">Metacampos a incluir</div>
+        <div id="catalog-mf-checks"></div>
+      </div>
     </div>
 
     <div class="card">
