@@ -123,7 +123,7 @@ function catalogHTML(products, options = {}) {
       background: rgba(255,255,255,0.78); padding: 52px 60px; border-radius: 4px;
     }
     .cover img { max-width: 240px; }
-    .cover h1 { font-size: 44px; font-weight: 300; letter-spacing: 0.08em; color: #1a1a1a; line-height: 1.2; }
+    .cover h1 { font-size: 34px; font-weight: 300; letter-spacing: 0.08em; color: #1a1a1a; line-height: 1.2; }
     .cover-divider { width: 60px; height: 1px; background: #9a7f5a; }
     .cover-web { font-size: 22px; font-weight: 300; letter-spacing: 0.06em; color: #1a1a1a; }
     .cover-social { display: flex; align-items: center; gap: 8px; font-size: 15px; color: #444; justify-content: center; }
